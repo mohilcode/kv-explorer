@@ -121,6 +121,7 @@ export default function App() {
 
     if (keyId === "none") {
       setSelectedKeys([]);
+      setSelectedValue(null);
       return;
     }
 
@@ -133,6 +134,10 @@ export default function App() {
     // Toggle selection
     if (selectedKeys.includes(keyId)) {
       setSelectedKeys(selectedKeys.filter((k) => k !== keyId));
+      // If we're unselecting the currently viewed key, clear the preview
+      if (keyValue && selectedValue === keyValue.value) {
+        setSelectedValue(null);
+      }
     } else {
       setSelectedKeys([...selectedKeys, keyId]);
     }
@@ -306,20 +311,29 @@ export default function App() {
                 onCancel={handleCancelEdit}
               />
             ) : (
-              <>
-                <KeyValueTable
-                  keyValues={keyValues.map(kv => ({
-                    ...kv,
-                    expiration: formatExpiration(kv.expiration)
-                  }))}
-                  selectedKeys={selectedKeys}
-                  onKeySelect={handleKeySelect}
-                  onEdit={handleEdit}
-                  onDelete={(keyId) => handleDelete([keyId])}
-                  onDeleteSelected={() => handleDelete(selectedKeys)}
-                />
-                {selectedValue && <ValuePreview value={selectedValue} />}
-              </>
+              <ResizablePanelGroup direction="vertical" className="flex-1 overflow-hidden">
+                <ResizablePanel defaultSize={60} minSize={30}>
+                  <KeyValueTable
+                    keyValues={keyValues.map(kv => ({
+                      ...kv,
+                      expiration: formatExpiration(kv.expiration)
+                    }))}
+                    selectedKeys={selectedKeys}
+                    onKeySelect={handleKeySelect}
+                    onEdit={handleEdit}
+                    onDelete={(keyId) => handleDelete([keyId])}
+                    onDeleteSelected={() => handleDelete(selectedKeys)}
+                  />
+                </ResizablePanel>
+                {selectedValue && (
+                  <>
+                    <ResizableHandle withHandle className="bg-zinc-800 h-1 hover:h-1 hover:bg-zinc-600 transition-colors" />
+                    <ResizablePanel defaultSize={40} minSize={20}>
+                      <ValuePreview value={selectedValue} />
+                    </ResizablePanel>
+                  </>
+                )}
+              </ResizablePanelGroup>
             )}
           </main>
         </ResizablePanel>

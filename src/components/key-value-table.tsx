@@ -31,6 +31,7 @@ export function KeyValueTable({
 }: KeyValueTableProps) {
   const [sortField, setSortField] = useState<"key" | "expiration">("key")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
+  const [hoveredRow, setHoveredRow] = useState<string | null>(null)
 
   const handleSort = (field: "key" | "expiration") => {
     if (sortField === field) {
@@ -52,7 +53,7 @@ export function KeyValueTable({
   })
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col h-full">
       <div className="flex items-center justify-between border-b border-zinc-800 p-4">
         <h2 className="text-lg font-bold tracking-wider">KEY-VALUE PAIRS</h2>
         {selectedKeys.length > 0 && (
@@ -91,14 +92,17 @@ export function KeyValueTable({
         </button>
         <div>ACTIONS</div>
       </div>
-      <ScrollArea className="h-[calc(50vh-8rem)]">
+      <ScrollArea className="flex-1">
         {sortedKeyValues.map((kv) => (
           <div
             key={kv.id}
             className={cn(
-              "grid grid-cols-[auto_1fr_auto_auto] gap-x-4 border-b border-zinc-800 px-4 py-3 hover:bg-zinc-900/50",
-              selectedKeys.includes(kv.id) && "bg-zinc-900",
+              "grid grid-cols-[auto_1fr_auto_auto] gap-x-4 border-b border-zinc-800 px-4 py-3",
+              hoveredRow === kv.id && !selectedKeys.includes(kv.id) && "bg-zinc-900/30",
+              selectedKeys.includes(kv.id) && "bg-zinc-900 border-l-2 border-l-zinc-500",
             )}
+            onMouseEnter={() => setHoveredRow(kv.id)}
+            onMouseLeave={() => setHoveredRow(null)}
           >
             <div className="flex items-center">
               <Checkbox
@@ -107,7 +111,10 @@ export function KeyValueTable({
                 className="border-zinc-700 data-[state=checked]:bg-zinc-700 data-[state=checked]:text-white"
               />
             </div>
-            <div className="cursor-pointer truncate font-mono text-sm" onClick={() => onKeySelect(kv.id)}>
+            <div
+              className="cursor-pointer truncate font-mono text-sm"
+              onClick={() => onKeySelect(kv.id)}
+            >
               {kv.key}
             </div>
             <div className="text-sm text-zinc-500">{kv.expiration}</div>
@@ -137,4 +144,3 @@ export function KeyValueTable({
     </div>
   )
 }
-
