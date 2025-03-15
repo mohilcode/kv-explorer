@@ -60,7 +60,7 @@ export function KeyValueTable({
             variant="destructive"
             size="sm"
             onClick={onDeleteSelected}
-            className="gap-2 bg-red-900 hover:bg-red-800"
+            className="gap-2 bg-red-900 hover:bg-red-800 cursor-pointer"
           >
             <Trash2 className="h-4 w-4" />
             DELETE SELECTED ({selectedKeys.length})
@@ -116,7 +116,7 @@ export function KeyValueTable({
                 variant="ghost"
                 size="icon"
                 onClick={() => onEdit(kv.id)}
-                className="hover:bg-zinc-800 hover:text-white"
+                className="hover:bg-zinc-800 hover:text-white cursor-pointer"
               >
                 <Edit className="h-4 w-4" />
                 <span className="sr-only">Edit</span>
@@ -125,7 +125,7 @@ export function KeyValueTable({
                 variant="ghost"
                 size="icon"
                 onClick={() => onDelete(kv.id)}
-                className="hover:bg-zinc-800 hover:text-white"
+                className="hover:bg-zinc-800 hover:text-white cursor-pointer"
               >
                 <Trash2 className="h-4 w-4" />
                 <span className="sr-only">Delete</span>

@@ -20,7 +20,7 @@ export function Header({ title, version, selectedFolder, onFolderSelect, isLoadi
         <Button
           onClick={onFolderSelect}
           variant="outline"
-          className="gap-2 border-zinc-700 bg-transparent hover:bg-zinc-900"
+          className="gap-2 border-zinc-700 bg-transparent hover:bg-zinc-900 cursor-pointer"
           disabled={isLoading}
         >
           <Folder className="h-4 w-4" />
@@ -38,7 +38,7 @@ export function Header({ title, version, selectedFolder, onFolderSelect, isLoadi
         <div className="flex-1">SYSTEM</div>
         <div className="flex items-center gap-2">
           <span>Last updated: Mar 16, 2025, 06:15 AM</span>
-          <Button variant="ghost" size="icon" className="h-6 w-6 text-zinc-500 hover:text-white">
+          <Button variant="ghost" size="icon" className="h-6 w-6 text-zinc-500 hover:text-white cursor-pointer">
             <RefreshCw className="h-3 w-3" />
           </Button>
         </div>

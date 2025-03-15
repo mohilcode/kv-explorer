@@ -48,10 +48,10 @@ export function ValueEditor({ keyName, value, onChange, onSave, onCancel }: Valu
           EDITING: <span className="font-mono text-green-400">{keyName}</span>
         </h2>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={onCancel} className="border-zinc-700 bg-transparent hover:bg-zinc-900">
+          <Button variant="outline" onClick={onCancel} className="border-zinc-700 bg-transparent hover:bg-zinc-900 cursor-pointer">
             CANCEL
           </Button>
-          <Button onClick={handleSave} className="bg-zinc-700 hover:bg-zinc-600">
+          <Button onClick={handleSave} className="bg-white text-black hover:bg-zinc-400 cursor-pointer">
             SAVE
           </Button>
         </div>

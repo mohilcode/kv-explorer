@@ -4,12 +4,12 @@
 )]
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
+use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use tauri::{command, State};
 use std::sync::Mutex;
-use better_sqlite3::{Database, Statement};
-use serde_json::{Value, json};
+use serde_json::Value;
 
 struct AppState {
     current_path: Mutex<Option<PathBuf>>,
@@ -67,7 +67,8 @@ fn select_folder(path: String, state: State<AppState>) -> Result<Vec<KVNamespace
         }
 
         let namespace_id = entry.file_name().to_string_lossy().to_string();
-        let blob_path = entry.path().join("blobs");
+        let namespace_dir = entry.path();
+        let blob_path = namespace_dir.join("blobs");
 
         // Find the sqlite database
         let db_dir = kv_path.join("miniflare-KVNamespaceObject");
@@ -89,18 +90,18 @@ fn select_folder(path: String, state: State<AppState>) -> Result<Vec<KVNamespace
         }
 
         // Open the SQLite database
-        let db = match better_sqlite3::Database::open(db_path.unwrap()) {
-            Ok(db) => db,
+        let conn = match Connection::open(db_path.unwrap()) {
+            Ok(conn) => conn,
             Err(_) => continue,
         };
 
         // Get KV entries
-        let mut stmt = match db.prepare("SELECT key, blob_id, expiration, metadata FROM _mf_entries") {
+        let mut stmt = match conn.prepare("SELECT key, blob_id, expiration, metadata FROM _mf_entries") {
             Ok(stmt) => stmt,
             Err(_) => continue,
         };
 
-        let rows = match stmt.query_map([], |row| {
+        let entries_iter = match stmt.query_map([], |row| {
             let key: String = row.get(0)?;
             let blob_id: String = row.get(1)?;
             let expiration: Option<i64> = row.get(2)?;
@@ -112,11 +113,16 @@ fn select_folder(path: String, state: State<AppState>) -> Result<Vec<KVNamespace
 
             if blob_file.exists() {
                 if let Ok(content) = fs::read_to_string(&blob_file) {
-                    // Remove the first line which contains the blob ID again
-                    let content = content.lines().skip(1).collect::<Vec<&str>>().join("\n");
-                    // Try to parse as JSON
-                    if let Ok(parsed) = serde_json::from_str(&content) {
-                        value = Some(parsed);
+                    // Look for the start of JSON content ('{' or '[')
+                    let json_start = content.find(|c| c == '{' || c == '[');
+
+                    if let Some(start_pos) = json_start {
+                        let json_content = &content[start_pos..];
+
+                        // Try to parse as JSON
+                        if let Ok(parsed) = serde_json::from_str(json_content) {
+                            value = Some(parsed);
+                        }
                     }
                 }
             }
@@ -129,13 +135,13 @@ fn select_folder(path: String, state: State<AppState>) -> Result<Vec<KVNamespace
                 value,
             })
         }) {
-            Ok(rows) => rows,
+            Ok(entries) => entries,
             Err(_) => continue,
         };
 
         let mut entries = Vec::new();
-        for row in rows {
-            if let Ok(entry) = row {
+        for entry in entries_iter {
+            if let Ok(entry) = entry {
                 entries.push(entry);
             }
         }
@@ -179,13 +185,13 @@ fn update_kv(namespace_id: String, key: String, value_str: String, state: State<
     }
 
     // Open the SQLite database
-    let db = match better_sqlite3::Database::open(db_path.unwrap()) {
-        Ok(db) => db,
+    let conn = match Connection::open(db_path.unwrap()) {
+        Ok(conn) => conn,
         Err(_) => return Err("Failed to open SQLite database".to_string()),
     };
 
     // Get the blob ID for the key
-    let mut stmt = match db.prepare("SELECT blob_id FROM _mf_entries WHERE key = ?") {
+    let mut stmt = match conn.prepare("SELECT blob_id FROM _mf_entries WHERE key = ?") {
         Ok(stmt) => stmt,
         Err(_) => return Err("Failed to prepare SQL statement".to_string()),
     };
@@ -208,8 +214,7 @@ fn update_kv(namespace_id: String, key: String, value_str: String, state: State<
     };
 
     // Write the updated content to the blob file
-    let content = format!("{}\n{}", blob_id, value_str);
-    match fs::write(&blob_file, content) {
+    match fs::write(&blob_file, value_str) {
         Ok(_) => Ok(()),
         Err(_) => Err("Failed to write to blob file".to_string()),
     }
@@ -245,23 +250,23 @@ fn delete_kv(namespace_id: String, keys: Vec<String>, state: State<AppState>) ->
     }
 
     // Open the SQLite database
-    let db = match better_sqlite3::Database::open(db_path.unwrap()) {
-        Ok(db) => db,
+    let conn = match Connection::open(db_path.unwrap()) {
+        Ok(conn) => conn,
         Err(_) => return Err("Failed to open SQLite database".to_string()),
     };
 
     // Start a transaction
-    match db.execute("BEGIN TRANSACTION", []) {
+    match conn.execute("BEGIN TRANSACTION", []) {
         Ok(_) => {},
         Err(_) => return Err("Failed to start transaction".to_string()),
     }
 
     for key in &keys {
         // Get the blob ID for the key
-        let mut stmt = match db.prepare("SELECT blob_id FROM _mf_entries WHERE key = ?") {
+        let mut stmt = match conn.prepare("SELECT blob_id FROM _mf_entries WHERE key = ?") {
             Ok(stmt) => stmt,
             Err(_) => {
-                db.execute("ROLLBACK", []).ok();
+                conn.execute("ROLLBACK", []).ok();
                 return Err("Failed to prepare SQL statement".to_string());
             }
         };
@@ -269,16 +274,16 @@ fn delete_kv(namespace_id: String, keys: Vec<String>, state: State<AppState>) ->
         let blob_id: String = match stmt.query_row([key], |row| row.get(0)) {
             Ok(blob_id) => blob_id,
             Err(_) => {
-                db.execute("ROLLBACK", []).ok();
+                conn.execute("ROLLBACK", []).ok();
                 return Err(format!("Key not found: {}", key));
             }
         };
 
         // Delete the KV entry from the database
-        let mut stmt = match db.prepare("DELETE FROM _mf_entries WHERE key = ?") {
+        let mut stmt = match conn.prepare("DELETE FROM _mf_entries WHERE key = ?") {
             Ok(stmt) => stmt,
             Err(_) => {
-                db.execute("ROLLBACK", []).ok();
+                conn.execute("ROLLBACK", []).ok();
                 return Err("Failed to prepare SQL statement".to_string());
             }
         };
@@ -286,7 +291,7 @@ fn delete_kv(namespace_id: String, keys: Vec<String>, state: State<AppState>) ->
         match stmt.execute([key]) {
             Ok(_) => {},
             Err(_) => {
-                db.execute("ROLLBACK", []).ok();
+                conn.execute("ROLLBACK", []).ok();
                 return Err(format!("Failed to delete key: {}", key));
             }
         }
@@ -295,17 +300,17 @@ fn delete_kv(namespace_id: String, keys: Vec<String>, state: State<AppState>) ->
         let blob_file = namespace_path.join(&blob_id);
         if blob_file.exists() {
             if let Err(_) = fs::remove_file(&blob_file) {
-                db.execute("ROLLBACK", []).ok();
+                conn.execute("ROLLBACK", []).ok();
                 return Err(format!("Failed to delete blob file for key: {}", key));
             }
         }
     }
 
     // Commit the transaction
-    match db.execute("COMMIT", []) {
+    match conn.execute("COMMIT", []) {
         Ok(_) => Ok(()),
         Err(_) => {
-            db.execute("ROLLBACK", []).ok();
+            conn.execute("ROLLBACK", []).ok();
             Err("Failed to commit transaction".to_string())
         }
     }
