@@ -15,9 +15,9 @@ interface NamespaceSidebarProps {
 
 export function NamespaceSidebar({ namespaces, selectedNamespace, onNamespaceSelect }: NamespaceSidebarProps) {
   return (
-    <aside className="w-64 border-r border-zinc-800 bg-black">
+    <div className="h-full flex flex-col border-r border-zinc-800 bg-black">
       <div className="border-b border-zinc-800 p-4 font-bold tracking-wider text-zinc-300">KV NAMESPACES</div>
-      <ScrollArea className="h-[calc(100vh-8rem)]">
+      <ScrollArea className="h-full">
         <div className="p-2">
           {namespaces.map((namespace) => (
             <button
@@ -28,13 +28,12 @@ export function NamespaceSidebar({ namespaces, selectedNamespace, onNamespaceSel
               )}
               onClick={() => onNamespaceSelect(namespace.id)}
             >
-              <span className="truncate">{namespace.name}</span>
-              <span className="ml-auto text-xs text-zinc-500">({namespace.count})</span>
+              <span className="break-words hyphens-auto mr-2">{namespace.name}</span>
+              <span className="flex-shrink-0 text-xs text-zinc-500">({namespace.count})</span>
             </button>
           ))}
         </div>
       </ScrollArea>
-    </aside>
+    </div>
   )
 }
-

@@ -9,6 +9,7 @@ import { ValueEditor } from "./components/value-editor";
 import { Toaster } from "./components/ui/toaster";
 import { useToast } from "./hooks/use-toast";
 import { GridBackground } from "./components/grid-background";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 
 // Define interfaces for our data
 interface KVEntry {
@@ -276,7 +277,7 @@ export default function App() {
   };
 
   return (
-    <div className="relative flex h-screen flex-col bg-black text-white font-mono">
+    <div className="relative flex h-screen flex-col text-white font-mono">
       <GridBackground />
       <Header
         title="WRANGLER KV EXPLORER"
@@ -285,39 +286,44 @@ export default function App() {
         onFolderSelect={handleFolderSelect}
         isLoading={isLoading}
       />
-      <div className="flex flex-1 overflow-hidden">
-        <NamespaceSidebar
-          namespaces={namespaces}
-          selectedNamespace={selectedNamespace}
-          onNamespaceSelect={handleNamespaceSelect}
-        />
-        <main className="flex flex-1 flex-col overflow-hidden">
-          {isEditing ? (
-            <ValueEditor
-              keyName={editingKey!}
-              value={editingValue}
-              onChange={setEditingValue}
-              onSave={handleSaveEdit}
-              onCancel={handleCancelEdit}
-            />
-          ) : (
-            <>
-              <KeyValueTable
-                keyValues={keyValues.map(kv => ({
-                  ...kv,
-                  expiration: formatExpiration(kv.expiration)
-                }))}
-                selectedKeys={selectedKeys}
-                onKeySelect={handleKeySelect}
-                onEdit={handleEdit}
-                onDelete={(keyId) => handleDelete([keyId])}
-                onDeleteSelected={() => handleDelete(selectedKeys)}
+      <ResizablePanelGroup direction="horizontal" className="flex-1 overflow-hidden">
+        <ResizablePanel defaultSize={20} minSize={15} maxSize={40}>
+          <NamespaceSidebar
+            namespaces={namespaces}
+            selectedNamespace={selectedNamespace}
+            onNamespaceSelect={handleNamespaceSelect}
+          />
+        </ResizablePanel>
+        <ResizableHandle withHandle className="bg-zinc-800 w-1 hover:w-1 hover:bg-zinc-600 transition-colors" />
+        <ResizablePanel defaultSize={80}>
+          <main className="flex flex-1 flex-col overflow-hidden h-full">
+            {isEditing ? (
+              <ValueEditor
+                keyName={editingKey!}
+                value={editingValue}
+                onChange={setEditingValue}
+                onSave={handleSaveEdit}
+                onCancel={handleCancelEdit}
               />
-              {selectedValue && <ValuePreview value={selectedValue} />}
-            </>
-          )}
-        </main>
-      </div>
+            ) : (
+              <>
+                <KeyValueTable
+                  keyValues={keyValues.map(kv => ({
+                    ...kv,
+                    expiration: formatExpiration(kv.expiration)
+                  }))}
+                  selectedKeys={selectedKeys}
+                  onKeySelect={handleKeySelect}
+                  onEdit={handleEdit}
+                  onDelete={(keyId) => handleDelete([keyId])}
+                  onDeleteSelected={() => handleDelete(selectedKeys)}
+                />
+                {selectedValue && <ValuePreview value={selectedValue} />}
+              </>
+            )}
+          </main>
+        </ResizablePanel>
+      </ResizablePanelGroup>
       <Toaster />
     </div>
   );
