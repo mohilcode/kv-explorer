@@ -1,21 +1,23 @@
-import { useState } from "react"
-import { Edit, Trash2 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { cn } from "@/lib/utils"
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { cn } from '@/lib/utils'
+import { Edit, Trash2 } from 'lucide-react'
+import { useState } from 'react'
 
 interface KeyValue {
   id: string
   key: string
   expiration: string
-  value: any
+  value: unknown
 }
 
 interface KeyValueTableProps {
   keyValues: KeyValue[]
   selectedKeys: string[]
+  viewingKeyId: string | null
   onKeySelect: (keyId: string) => void
+  onKeyView: (keyId: string) => void
   onEdit: (keyId: string) => void
   onDelete: (keyId: string) => void
   onDeleteSelected: () => void
@@ -24,32 +26,33 @@ interface KeyValueTableProps {
 export function KeyValueTable({
   keyValues,
   selectedKeys,
+  viewingKeyId,
   onKeySelect,
+  onKeyView,
   onEdit,
   onDelete,
   onDeleteSelected,
 }: KeyValueTableProps) {
-  const [sortField, setSortField] = useState<"key" | "expiration">("key")
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
+  const [sortField, setSortField] = useState<'key' | 'expiration'>('key')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [hoveredRow, setHoveredRow] = useState<string | null>(null)
 
-  const handleSort = (field: "key" | "expiration") => {
+  const handleSort = (field: 'key' | 'expiration') => {
     if (sortField === field) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc")
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
     } else {
       setSortField(field)
-      setSortDirection("asc")
+      setSortDirection('asc')
     }
   }
 
   const sortedKeyValues = [...keyValues].sort((a, b) => {
-    if (sortField === "key") {
-      return sortDirection === "asc" ? a.key.localeCompare(b.key) : b.key.localeCompare(a.key)
-    } else {
-      return sortDirection === "asc"
-        ? a.expiration.localeCompare(b.expiration)
-        : b.expiration.localeCompare(a.expiration)
+    if (sortField === 'key') {
+      return sortDirection === 'asc' ? a.key.localeCompare(b.key) : b.key.localeCompare(a.key)
     }
+    return sortDirection === 'asc'
+      ? a.expiration.localeCompare(b.expiration)
+      : b.expiration.localeCompare(a.expiration)
   })
 
   return (
@@ -72,34 +75,50 @@ export function KeyValueTable({
         <div className="flex items-center">
           <Checkbox
             checked={selectedKeys.length === keyValues.length && keyValues.length > 0}
-            onCheckedChange={(checked) => {
+            onCheckedChange={checked => {
               if (checked) {
-                onKeySelect("all")
+                onKeySelect('all')
               } else {
-                onKeySelect("none")
+                onKeySelect('none')
               }
             }}
             className="border-zinc-700 data-[state=checked]:bg-zinc-700 data-[state=checked]:text-white"
           />
         </div>
-        <button className="flex items-center gap-1 text-left" onClick={() => handleSort("key")}>
+        <button
+          type="button"
+          className="flex items-center gap-1 text-left"
+          onClick={() => handleSort('key')}
+        >
           KEY
-          <span className="text-xs">{sortField === "key" && (sortDirection === "asc" ? "▲" : "▼")}</span>
+          <span className="text-xs">
+            {sortField === 'key' && (sortDirection === 'asc' ? '▲' : '▼')}
+          </span>
         </button>
-        <button className="flex items-center gap-1" onClick={() => handleSort("expiration")}>
+        <button
+          type="button"
+          className="flex items-center gap-1"
+          onClick={() => handleSort('expiration')}
+        >
           EXPIRATION
-          <span className="text-xs">{sortField === "expiration" && (sortDirection === "asc" ? "▲" : "▼")}</span>
+          <span className="text-xs">
+            {sortField === 'expiration' && (sortDirection === 'asc' ? '▲' : '▼')}
+          </span>
         </button>
         <div>ACTIONS</div>
       </div>
       <ScrollArea className="flex-1">
-        {sortedKeyValues.map((kv) => (
+        {sortedKeyValues.map(kv => (
           <div
             key={kv.id}
             className={cn(
-              "grid grid-cols-[auto_1fr_auto_auto] gap-x-4 border-b border-zinc-800 px-4 py-3",
-              hoveredRow === kv.id && !selectedKeys.includes(kv.id) && "bg-zinc-900/30",
-              selectedKeys.includes(kv.id) && "bg-zinc-900 border-l-2 border-l-zinc-500",
+              'grid grid-cols-[auto_1fr_auto_auto] gap-x-4 border-b border-zinc-800 px-4 py-3',
+              hoveredRow === kv.id &&
+                !selectedKeys.includes(kv.id) &&
+                kv.id !== viewingKeyId &&
+                'bg-zinc-900/30',
+              selectedKeys.includes(kv.id) && 'bg-zinc-900 border-l-2 border-l-zinc-500',
+              kv.id === viewingKeyId && 'bg-green-900/30 border-l-2 border-l-green-500'
             )}
             onMouseEnter={() => setHoveredRow(kv.id)}
             onMouseLeave={() => setHoveredRow(null)}
@@ -111,12 +130,13 @@ export function KeyValueTable({
                 className="border-zinc-700 data-[state=checked]:bg-zinc-700 data-[state=checked]:text-white"
               />
             </div>
-            <div
-              className="cursor-pointer truncate font-mono text-sm"
-              onClick={() => onKeySelect(kv.id)}
+            <button
+              type="button"
+              className="cursor-pointer truncate font-mono text-sm outline-none focus:ring-1 focus:ring-zinc-500 rounded-sm px-1 text-left w-full bg-transparent border-0"
+              onClick={() => onKeyView(kv.id)}
             >
               {kv.key}
-            </div>
+            </button>
             <div className="text-sm text-zinc-500">{kv.expiration}</div>
             <div className="flex gap-2">
               <Button

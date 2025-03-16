@@ -11,16 +11,16 @@
     "version": "0.1.0"
   },
   "tauri": {
-  "allowlist": {
-    "all": false,
-    "shell": {
+    "allowlist": {
       "all": false,
-      "open": true
+      "shell": {
+        "all": false,
+        "open": true
+      },
+      "dialog": {
+        "open": true
+      }
     },
-    "dialog": {
-      "open": true
-    }
-  },
     "windows": [
       {
         "title": "Wrangler KV Explorer",

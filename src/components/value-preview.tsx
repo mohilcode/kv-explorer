@@ -1,7 +1,7 @@
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 interface ValuePreviewProps {
-  value: any
+  value: unknown
 }
 
 export function ValuePreview({ value }: ValuePreviewProps) {

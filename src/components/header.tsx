@@ -1,6 +1,6 @@
-import { Folder, RefreshCw } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
+import { Button } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
+import { Folder, RefreshCw } from 'lucide-react'
 
 interface HeaderProps {
   title: string
@@ -26,7 +26,9 @@ export function Header({ title, version, selectedFolder, onFolderSelect, isLoadi
           <Folder className="h-4 w-4" />
           <span>SELECT WRANGLER FOLDER</span>
         </Button>
-        <div className="ml-4 flex-1 truncate text-sm text-zinc-400">{selectedFolder || "NO FOLDER SELECTED"}</div>
+        <div className="ml-4 flex-1 truncate text-sm text-zinc-400">
+          {selectedFolder || 'NO FOLDER SELECTED'}
+        </div>
         {isLoading && (
           <div className="ml-auto flex items-center gap-2">
             <RefreshCw className="h-4 w-4 animate-spin" />
@@ -38,7 +40,11 @@ export function Header({ title, version, selectedFolder, onFolderSelect, isLoadi
         <div className="flex-1">SYSTEM</div>
         <div className="flex items-center gap-2">
           <span>Last updated: Mar 16, 2025, 06:15 AM</span>
-          <Button variant="ghost" size="icon" className="h-6 w-6 text-zinc-500 hover:text-white cursor-pointer">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-zinc-500 hover:text-white cursor-pointer"
+          >
             <RefreshCw className="h-3 w-3" />
           </Button>
         </div>
@@ -46,4 +52,3 @@ export function Header({ title, version, selectedFolder, onFolderSelect, isLoadi
     </header>
   )
 }
-

@@ -8,10 +8,9 @@ export function GridBackground() {
             linear-gradient(to right, #333 1px, transparent 1px),
             linear-gradient(to bottom, #333 1px, transparent 1px)
           `,
-          backgroundSize: "20px 20px",
+          backgroundSize: '20px 20px',
         }}
       />
     </div>
   )
 }
-

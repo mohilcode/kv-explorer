@@ -1,15 +1,15 @@
-import type React from "react"
+import type React from 'react'
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Textarea } from "@/components/ui/textarea"
-import { useToast } from "@/hooks/use-toast"
+import { Button } from '@/components/ui/button'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Textarea } from '@/components/ui/textarea'
+import { useToast } from '@/hooks/use-toast'
+import { useState } from 'react'
 
 interface ValueEditorProps {
   keyName: string
-  value: any
-  onChange: (value: any) => void
+  value: unknown
+  onChange: (value: unknown) => void
   onSave: () => void
   onCancel: () => void
 }
@@ -24,17 +24,17 @@ export function ValueEditor({ keyName, value, onChange, onSave, onCancel }: Valu
       const parsed = JSON.parse(e.target.value)
       onChange(parsed)
       setError(null)
-    } catch (err) {
-      setError("Invalid JSON format")
+    } catch (_err) {
+      setError('Invalid JSON format')
     }
   }
 
   const handleSave = () => {
     if (error) {
       toast({
-        title: "ERROR",
-        description: "Please fix the JSON errors before saving",
-        variant: "destructive",
+        title: 'ERROR',
+        description: 'Please fix the JSON errors before saving',
+        variant: 'destructive',
       })
       return
     }
@@ -48,17 +48,26 @@ export function ValueEditor({ keyName, value, onChange, onSave, onCancel }: Valu
           EDITING: <span className="font-mono text-green-400">{keyName}</span>
         </h2>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={onCancel} className="border-zinc-700 bg-transparent hover:bg-zinc-900 cursor-pointer">
+          <Button
+            variant="outline"
+            onClick={onCancel}
+            className="border-zinc-700 bg-transparent hover:bg-zinc-900 cursor-pointer"
+          >
             CANCEL
           </Button>
-          <Button onClick={handleSave} className="bg-white text-black hover:bg-zinc-400 cursor-pointer">
+          <Button
+            onClick={handleSave}
+            className="bg-white text-black hover:bg-zinc-400 cursor-pointer"
+          >
             SAVE
           </Button>
         </div>
       </div>
       <div className="flex flex-1 flex-col p-4">
         {error && (
-          <div className="mb-2 rounded-none border border-red-900 bg-red-900/20 p-2 text-sm text-red-500">{error}</div>
+          <div className="mb-2 rounded-none border border-red-900 bg-red-900/20 p-2 text-sm text-red-500">
+            {error}
+          </div>
         )}
         <ScrollArea className="flex-1">
           <Textarea
@@ -71,4 +80,3 @@ export function ValueEditor({ keyName, value, onChange, onSave, onCancel }: Valu
     </div>
   )
 }
-

@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "format": "biome check --write ."
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.1.3",
@@ -28,6 +29,7 @@
     "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
+    "@biomejs/biome": "1.9.4",
     "@tauri-apps/cli": "^1",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.1",

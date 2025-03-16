@@ -1,68 +1,64 @@
-import { useState, useEffect } from "react";
-import { invoke } from "@tauri-apps/api/tauri";
-import { open } from "@tauri-apps/api/dialog";
-import { Header } from "./components/header";
-import { NamespaceSidebar } from "./components/namespace-sidebar";
-import { KeyValueTable } from "./components/key-value-table";
-import { ValuePreview } from "./components/value-preview";
-import { ValueEditor } from "./components/value-editor";
-import { Toaster } from "./components/ui/toaster";
-import { useToast } from "./hooks/use-toast";
-import { GridBackground } from "./components/grid-background";
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
+import { open } from '@tauri-apps/api/dialog'
+import { invoke } from '@tauri-apps/api/tauri'
+import { useEffect, useState } from 'react'
+import { GridBackground } from './components/grid-background'
+import { Header } from './components/header'
+import { KeyValueTable } from './components/key-value-table'
+import { NamespaceSidebar } from './components/namespace-sidebar'
+import { Toaster } from './components/ui/toaster'
+import { ValueEditor } from './components/value-editor'
+import { ValuePreview } from './components/value-preview'
+import { useToast } from './hooks/use-toast'
 
-// Define interfaces for our data
 interface KVEntry {
-  id: string;
-  key: string;
-  blob_id: string;
-  expiration: number | null;
-  metadata: string | null;
-  value: any;
+  id: string
+  key: string
+  blob_id: string
+  expiration: number | null
+  metadata: string | null
+  value: unknown
 }
 
 interface KVNamespace {
-  id: string;
-  name: string;
-  count: number;
-  entries: KVEntry[];
+  id: string
+  name: string
+  count: number
+  entries: KVEntry[]
 }
 
 export default function App() {
-  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [namespaces, setNamespaces] = useState<KVNamespace[]>([]);
-  const [selectedNamespace, setSelectedNamespace] = useState<string | null>(null);
-  const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
-  const [selectedValue, setSelectedValue] = useState<any>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editingKey, setEditingKey] = useState<string | null>(null);
-  const [editingValue, setEditingValue] = useState<any>(null);
-  const [keyValues, setKeyValues] = useState<KVEntry[]>([]);
-  const { toast } = useToast();
+  const [selectedFolder, setSelectedFolder] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [namespaces, setNamespaces] = useState<KVNamespace[]>([])
+  const [selectedNamespace, setSelectedNamespace] = useState<string | null>(null)
+  const [selectedKeys, setSelectedKeys] = useState<string[]>([])
+  const [viewingKeyId, setViewingKeyId] = useState<string | null>(null)
+  const [selectedValue, setSelectedValue] = useState<unknown | null>(null)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editingKey, setEditingKey] = useState<string | null>(null)
+  const [editingValue, setEditingValue] = useState<unknown | null>(null)
+  const [keyValues, setKeyValues] = useState<KVEntry[]>([])
+  const { toast } = useToast()
 
-  // Force dark mode
   useEffect(() => {
-    document.documentElement.classList.add("dark");
-  }, []);
+    document.documentElement.classList.add('dark')
+  }, [])
 
   const handleFolderSelect = async () => {
     try {
-      setIsLoading(true);
-      // Open folder dialog and get path
+      setIsLoading(true)
       const selected = await open({
         directory: true,
         multiple: false,
-        title: "Select Wrangler Project Folder",
-      });
+        title: 'Select Wrangler Project Folder',
+      })
 
       if (selected) {
-        setSelectedFolder(selected as string);
+        setSelectedFolder(selected as string)
 
-        // Call Rust backend to load namespaces
-        const result = await invoke<KVNamespace[]>("select_folder", { path: selected });
+        const result = await invoke<KVNamespace[]>('select_folder', { path: selected })
 
-        // Transform the data to match our UI components
         const transformedNamespaces = result.map(ns => ({
           id: ns.id,
           name: ns.id.toUpperCase(),
@@ -73,105 +69,98 @@ export default function App() {
             blob_id: entry.blob_id,
             expiration: entry.expiration,
             metadata: entry.metadata,
-            value: entry.value
-          }))
-        }));
+            value: entry.value,
+          })),
+        }))
 
-        setNamespaces(transformedNamespaces);
+        setNamespaces(transformedNamespaces)
 
         if (transformedNamespaces.length > 0) {
-          setSelectedNamespace(transformedNamespaces[0].id);
-          setKeyValues(transformedNamespaces[0].entries);
+          setSelectedNamespace(transformedNamespaces[0].id)
+          setKeyValues(transformedNamespaces[0].entries)
         }
 
         toast({
-          title: "FOLDER SELECTED",
-          description: "Successfully loaded KV namespaces",
-        });
+          title: 'FOLDER SELECTED',
+          description: 'Successfully loaded KV namespaces',
+        })
       }
     } catch (error) {
       toast({
-        title: "ERROR",
+        title: 'ERROR',
         description: String(error),
-        variant: "destructive",
-      });
+        variant: 'destructive',
+      })
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   const handleNamespaceSelect = (namespaceId: string) => {
-    setSelectedNamespace(namespaceId);
-    setSelectedKeys([]);
-    setSelectedValue(null);
+    setSelectedNamespace(namespaceId)
+    setSelectedKeys([])
+    setViewingKeyId(null)
+    setSelectedValue(null)
 
-    // Find the selected namespace and set its key-values
-    const selected = namespaces.find(ns => ns.id === namespaceId);
+    const selected = namespaces.find(ns => ns.id === namespaceId)
     if (selected) {
-      setKeyValues(selected.entries);
+      setKeyValues(selected.entries)
     }
-  };
+  }
 
   const handleKeySelect = (keyId: string) => {
-    // Handle special cases for select all/none
-    if (keyId === "all") {
-      setSelectedKeys(keyValues.map(kv => kv.id));
-      return;
+    if (keyId === 'all') {
+      setSelectedKeys(keyValues.map(kv => kv.id))
+      return
     }
 
-    if (keyId === "none") {
-      setSelectedKeys([]);
-      setSelectedValue(null);
-      return;
+    if (keyId === 'none') {
+      setSelectedKeys([])
+      return
     }
 
-    // Normal key selection
-    const keyValue = keyValues.find((kv) => kv.id === keyId);
-    if (keyValue) {
-      setSelectedValue(keyValue.value);
-    }
-
-    // Toggle selection
     if (selectedKeys.includes(keyId)) {
-      setSelectedKeys(selectedKeys.filter((k) => k !== keyId));
-      // If we're unselecting the currently viewed key, clear the preview
-      if (keyValue && selectedValue === keyValue.value) {
-        setSelectedValue(null);
-      }
+      setSelectedKeys(selectedKeys.filter(k => k !== keyId))
     } else {
-      setSelectedKeys([...selectedKeys, keyId]);
+      setSelectedKeys([...selectedKeys, keyId])
     }
-  };
+  }
+
+  const handleKeyView = (keyId: string) => {
+    const keyValue = keyValues.find(kv => kv.id === keyId)
+    if (keyValue) {
+      setViewingKeyId(keyId)
+      setSelectedValue(keyValue.value)
+    }
+  }
 
   const handleEdit = (keyId: string) => {
-    const keyValue = keyValues.find((kv) => kv.id === keyId);
+    const keyValue = keyValues.find(kv => kv.id === keyId)
     if (keyValue) {
-      setEditingKey(keyValue.key);
-      setEditingValue(keyValue.value);
-      setIsEditing(true);
+      setEditingKey(keyValue.key)
+      setEditingValue(keyValue.value)
+      setIsEditing(true)
     }
-  };
+  }
 
   const handleDelete = async (keyIds: string[]) => {
-    if (!selectedNamespace || keyIds.length === 0) return;
+    if (!selectedNamespace || keyIds.length === 0) {
+      return
+    }
 
-    setIsLoading(true);
+    setIsLoading(true)
     try {
-      // Get the keys to delete
-      const keysToDelete = keyIds.map(id =>
-        keyValues.find(kv => kv.id === id)?.key || ""
-      ).filter(k => k !== "");
+      const keysToDelete = keyIds
+        .map(id => keyValues.find(kv => kv.id === id)?.key || '')
+        .filter(k => k !== '')
 
-      // Call Rust backend to delete keys
-      await invoke("delete_kv", {
+      await invoke('delete_kv', {
         namespaceId: selectedNamespace,
-        keys: keysToDelete
-      });
+        keys: keysToDelete,
+      })
 
-      // Refresh data
-      const result = await invoke<KVNamespace[]>("select_folder", { path: selectedFolder });
+      const result = await invoke<KVNamespace[]>('select_folder', { path: selectedFolder })
 
-      // Transform and update UI
       const transformedNamespaces = result.map(ns => ({
         id: ns.id,
         name: ns.id.toUpperCase(),
@@ -182,52 +171,51 @@ export default function App() {
           blob_id: entry.blob_id,
           expiration: entry.expiration,
           metadata: entry.metadata,
-          value: entry.value
-        }))
-      }));
+          value: entry.value,
+        })),
+      }))
 
-      setNamespaces(transformedNamespaces);
+      setNamespaces(transformedNamespaces)
 
-      // Update selected namespace data
-      const updatedNamespace = transformedNamespaces.find(ns => ns.id === selectedNamespace);
+      const updatedNamespace = transformedNamespaces.find(ns => ns.id === selectedNamespace)
       if (updatedNamespace) {
-        setKeyValues(updatedNamespace.entries);
+        setKeyValues(updatedNamespace.entries)
       }
 
-      setSelectedKeys([]);
-      setSelectedValue(null);
+      setSelectedKeys([])
+      setViewingKeyId(null)
+      setSelectedValue(null)
 
       toast({
-        title: "KEYS DELETED",
+        title: 'KEYS DELETED',
         description: `Successfully deleted ${keyIds.length} key(s)`,
-      });
+      })
     } catch (error) {
       toast({
-        title: "ERROR",
+        title: 'ERROR',
         description: String(error),
-        variant: "destructive",
-      });
+        variant: 'destructive',
+      })
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   const handleSaveEdit = async () => {
-    if (!editingKey || !selectedNamespace) return;
+    if (!editingKey || !selectedNamespace) {
+      return
+    }
 
-    setIsLoading(true);
+    setIsLoading(true)
     try {
-      // Call Rust backend to update key value
-      await invoke("update_kv", {
+      await invoke('update_kv', {
         namespaceId: selectedNamespace,
         key: editingKey,
-        valueStr: JSON.stringify(editingValue)
-      });
+        valueStr: JSON.stringify(editingValue),
+      })
 
-      // Refresh data
-      const result = await invoke<KVNamespace[]>("select_folder", { path: selectedFolder });
+      const result = await invoke<KVNamespace[]>('select_folder', { path: selectedFolder })
 
-      // Transform and update UI
       const transformedNamespaces = result.map(ns => ({
         id: ns.id,
         name: ns.id.toUpperCase(),
@@ -238,48 +226,52 @@ export default function App() {
           blob_id: entry.blob_id,
           expiration: entry.expiration,
           metadata: entry.metadata,
-          value: entry.value
-        }))
-      }));
+          value: entry.value,
+        })),
+      }))
 
-      setNamespaces(transformedNamespaces);
+      setNamespaces(transformedNamespaces)
 
-      // Update selected namespace data
-      const updatedNamespace = transformedNamespaces.find(ns => ns.id === selectedNamespace);
+      const updatedNamespace = transformedNamespaces.find(ns => ns.id === selectedNamespace)
       if (updatedNamespace) {
-        setKeyValues(updatedNamespace.entries);
+        setKeyValues(updatedNamespace.entries)
       }
 
-      setIsEditing(false);
-      setEditingKey(null);
-      setEditingValue(null);
+      setIsEditing(false)
+      setEditingKey(null)
+      setEditingValue(null)
 
       toast({
-        title: "VALUE UPDATED",
-        description: "Successfully saved changes",
-      });
+        title: 'VALUE UPDATED',
+        description: 'Successfully saved changes',
+      })
     } catch (error) {
       toast({
-        title: "ERROR",
+        title: 'ERROR',
         description: String(error),
-        variant: "destructive",
-      });
+        variant: 'destructive',
+      })
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   const handleCancelEdit = () => {
-    setIsEditing(false);
-    setEditingKey(null);
-    setEditingValue(null);
-  };
+    setIsEditing(false)
+    setEditingKey(null)
+    setEditingValue(null)
+  }
 
-  // Helper function to format expiration times
   const formatExpiration = (timestamp: number | null): string => {
-    if (!timestamp) return "No expiration";
-    return new Date(timestamp).toLocaleDateString();
-  };
+    if (!timestamp) {
+      return 'No expiration'
+    }
+    return new Date(timestamp).toLocaleDateString()
+  }
+
+  const hasValue = (value: unknown): boolean => {
+    return value !== null && value !== undefined
+  }
 
   return (
     <div className="relative flex h-screen flex-col text-white font-mono">
@@ -299,12 +291,15 @@ export default function App() {
             onNamespaceSelect={handleNamespaceSelect}
           />
         </ResizablePanel>
-        <ResizableHandle withHandle className="bg-zinc-800 w-1 hover:w-1 hover:bg-zinc-600 transition-colors" />
+        <ResizableHandle
+          withHandle
+          className="bg-zinc-800 w-1 hover:w-1 hover:bg-zinc-600 transition-colors"
+        />
         <ResizablePanel defaultSize={80}>
           <main className="flex flex-1 flex-col overflow-hidden h-full">
-            {isEditing ? (
+            {isEditing && editingKey ? (
               <ValueEditor
-                keyName={editingKey!}
+                keyName={editingKey}
                 value={editingValue}
                 onChange={setEditingValue}
                 onSave={handleSaveEdit}
@@ -316,18 +311,23 @@ export default function App() {
                   <KeyValueTable
                     keyValues={keyValues.map(kv => ({
                       ...kv,
-                      expiration: formatExpiration(kv.expiration)
+                      expiration: formatExpiration(kv.expiration),
                     }))}
                     selectedKeys={selectedKeys}
+                    viewingKeyId={viewingKeyId}
                     onKeySelect={handleKeySelect}
+                    onKeyView={handleKeyView}
                     onEdit={handleEdit}
-                    onDelete={(keyId) => handleDelete([keyId])}
+                    onDelete={keyId => handleDelete([keyId])}
                     onDeleteSelected={() => handleDelete(selectedKeys)}
                   />
                 </ResizablePanel>
-                {selectedValue && (
+                {hasValue(selectedValue) && (
                   <>
-                    <ResizableHandle withHandle className="bg-zinc-800 h-1 hover:h-1 hover:bg-zinc-600 transition-colors" />
+                    <ResizableHandle
+                      withHandle
+                      className="bg-zinc-800 h-1 hover:h-1 hover:bg-zinc-600 transition-colors"
+                    />
                     <ResizablePanel defaultSize={40} minSize={20}>
                       <ValuePreview value={selectedValue} />
                     </ResizablePanel>
@@ -340,5 +340,5 @@ export default function App() {
       </ResizablePanelGroup>
       <Toaster />
     </div>
-  );
+  )
 }
