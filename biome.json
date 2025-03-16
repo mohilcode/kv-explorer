@@ -37,8 +37,7 @@
       },
       "style": {
         "noVar": "error",
-        "useConst": "error",
-        "useBlockStatements": "error"
+        "useConst": "error"
       },
       "nursery": {
         "useConsistentCurlyBraces": "error",

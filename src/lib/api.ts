@@ -15,6 +15,8 @@ export interface KVNamespace {
   name: string
   count: number
   entries: KVEntry[]
+  type?: "local" | "remote"
+  accountId?: string
 }
 
 export async function selectFolder() {
@@ -34,6 +36,7 @@ export async function selectFolder() {
     id: ns.id,
     name: ns.id.toUpperCase(),
     count: ns.entries.length,
+    type: "local" as const,
     entries: ns.entries.map((entry, index) => ({
       id: index.toString(),
       key: entry.key,
@@ -76,6 +79,7 @@ async function refreshNamespaces(folderPath: string) {
     id: ns.id,
     name: ns.id.toUpperCase(),
     count: ns.entries.length,
+    type: "local" as const,
     entries: ns.entries.map((entry, index) => ({
       id: index.toString(),
       key: entry.key,
@@ -85,6 +89,54 @@ async function refreshNamespaces(folderPath: string) {
       value: entry.value,
     })),
   }))
+}
+
+export async function connectCloudflare(accountId: string, apiToken: string): Promise<void> {
+  await invoke('connect_cloudflare', { accountId, apiToken })
+}
+
+export async function getRemoteNamespaces(): Promise<KVNamespace[]> {
+  const remoteNamespaces = await invoke<KVNamespace[]>('get_remote_namespaces')
+  return remoteNamespaces
+}
+
+export async function getRemoteKeys(accountId: string, namespaceId: string): Promise<KVEntry[]> {
+  const entries = await invoke<KVEntry[]>('get_remote_keys', {
+    accountId,
+    namespaceId
+  })
+
+  return entries.map((entry, index) => ({
+    ...entry,
+    id: index.toString()
+  }))
+}
+
+export async function getRemoteValue(accountId: string, namespaceId: string, keyName: string): Promise<unknown> {
+  return invoke('get_remote_value', {
+    accountId,
+    namespaceId,
+    keyName
+  })
+}
+
+export async function updateRemoteValue(accountId: string, namespaceId: string, keyName: string, value: unknown): Promise<void> {
+  const valueStr = JSON.stringify(value)
+
+  await invoke('update_remote_kv', {
+    accountId,
+    namespaceId,
+    keyName,
+    value: valueStr
+  })
+}
+
+export async function deleteRemoteKeys(accountId: string, namespaceId: string, keys: string[]): Promise<void> {
+  await invoke('delete_remote_kv', {
+    accountId,
+    namespaceId,
+    keys
+  })
 }
 
 export function formatExpiration(timestamp: number | null): string {

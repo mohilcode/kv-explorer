@@ -1,12 +1,26 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { Header } from '@/components/header'
 import { KeyValueTable } from '@/components/key-value-table'
 import { NamespaceSidebar } from '@/components/namespace-sidebar'
 import { ValueEditor } from '@/components/value-editor'
 import { ValuePreview } from '@/components/value-preview'
+import { RemoteConnectionModal } from '@/components/remote-connection-modal'
 import { useToast } from '@/hooks/use-toast'
-import { type KVEntry, type KVNamespace, selectFolder, deleteKeys, updateValue, formatExpiration, hasValue } from '@/lib/api'
+import {
+  type KVEntry,
+  type KVNamespace,
+  selectFolder,
+  deleteKeys,
+  updateValue,
+  formatExpiration,
+  connectCloudflare,
+  getRemoteNamespaces,
+  getRemoteKeys,
+  getRemoteValue,
+  updateRemoteValue,
+  deleteRemoteKeys
+} from '@/lib/api'
 
 export function KVExplorer() {
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null)
@@ -20,20 +34,32 @@ export function KVExplorer() {
   const [editingKey, setEditingKey] = useState<string | null>(null)
   const [editingValue, setEditingValue] = useState<unknown | null>(null)
   const [keyValues, setKeyValues] = useState<KVEntry[]>([])
+  const [isRemoteModalOpen, setIsRemoteModalOpen] = useState(false)
+  const [remoteConnections, setRemoteConnections] = useState<{ accountId: string }[]>([])
   const { toast } = useToast()
+
+  useEffect(() => {
+    if (remoteConnections.length > 0) {
+      loadRemoteNamespaces()
+    }
+  }, [remoteConnections])
 
   const handleFolderSelect = async () => {
     try {
       setIsLoading(true)
-      const { folderPath, namespaces: loadedNamespaces } = await selectFolder()
+      const { folderPath, namespaces: localNamespaces } = await selectFolder()
 
       if (folderPath) {
         setSelectedFolder(folderPath)
-        setNamespaces(loadedNamespaces)
+        setNamespaces(prev => {
+          // Keep remote namespaces, replace local ones
+          const remote = prev.filter(ns => ns.type === 'remote')
+          return [...remote, ...localNamespaces]
+        })
 
-        if (loadedNamespaces.length > 0) {
-          setSelectedNamespace(loadedNamespaces[0].id)
-          setKeyValues(loadedNamespaces[0].entries)
+        if (localNamespaces.length > 0) {
+          setSelectedNamespace(localNamespaces[0].id)
+          setKeyValues(localNamespaces[0].entries)
         }
 
         toast({
@@ -52,15 +78,82 @@ export function KVExplorer() {
     }
   }
 
-  const handleNamespaceSelect = (namespaceId: string) => {
+  const handleRemoteConnect = () => {
+    setIsRemoteModalOpen(true)
+  }
+
+  const handleRemoteConnectionSave = async (accountId: string, apiToken: string) => {
+    try {
+      setIsLoading(true)
+      await connectCloudflare(accountId, apiToken)
+
+      setRemoteConnections(prev => [...prev, { accountId }])
+
+      toast({
+        title: 'REMOTE CONNECTION ESTABLISHED',
+        description: `Successfully connected to account ${accountId}`,
+      })
+
+      setIsRemoteModalOpen(false)
+    } catch (error) {
+      toast({
+        title: 'ERROR',
+        description: String(error),
+        variant: 'destructive',
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const loadRemoteNamespaces = async () => {
+    try {
+      setIsLoading(true)
+      const remoteNamespaces = await getRemoteNamespaces()
+
+      setNamespaces(prev => {
+        const local = prev.filter(ns => ns.type === 'local')
+        return [...local, ...remoteNamespaces]
+      })
+    } catch (error) {
+      toast({
+        title: 'ERROR',
+        description: String(error),
+        variant: 'destructive',
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleNamespaceSelect = async (namespaceId: string) => {
     setSelectedNamespace(namespaceId)
     setSelectedKeys([])
     setViewingKeyId(null)
     setSelectedValue(null)
 
     const selected = namespaces.find(ns => ns.id === namespaceId)
-    if (selected) {
-      setKeyValues(selected.entries)
+    if (!selected) return
+
+    setIsLoading(true)
+    try {
+      if (selected.type === 'local') {
+        setKeyValues(selected.entries)
+      } else {
+        const accountId = selected.accountId || remoteConnections[0]?.accountId
+        if (!accountId) throw new Error('Account ID not found')
+
+        const entries = await getRemoteKeys(accountId, namespaceId)
+        setKeyValues(entries)
+      }
+    } catch (error) {
+      toast({
+        title: 'ERROR',
+        description: String(error),
+        variant: 'destructive',
+      })
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -82,41 +175,112 @@ export function KVExplorer() {
     }
   }
 
-  const handleKeyView = (keyId: string) => {
+  const handleKeyView = async (keyId: string) => {
     const keyValue = keyValues.find(kv => kv.id === keyId)
-    if (keyValue) {
-      setViewingKeyId(keyId)
-      setSelectedValue(keyValue.value)
+    if (!keyValue) return
+
+    const selected = namespaces.find(ns => ns.id === selectedNamespace)
+    if (!selected) return
+
+    setViewingKeyId(keyId)
+    setIsLoading(true)
+
+    try {
+      if (selected.type === 'local') {
+        setSelectedValue(keyValue.value)
+      } else {
+        const accountId = selected.accountId || remoteConnections[0]?.accountId
+        if (!accountId) throw new Error('Account ID not found')
+
+        const value = await getRemoteValue(accountId, selected.id, keyValue.key)
+        setSelectedValue(value)
+      }
+    } catch (error) {
+      toast({
+        title: 'ERROR',
+        description: String(error),
+        variant: 'destructive',
+      })
+    } finally {
+      setIsLoading(false)
     }
   }
 
   const handleEdit = (keyId: string) => {
     const keyValue = keyValues.find(kv => kv.id === keyId)
-    if (keyValue) {
-      setEditingKey(keyValue.key)
-      setEditingValue(keyValue.value)
-      setIsEditing(true)
+    if (!keyValue) return
+
+    const selected = namespaces.find(ns => ns.id === selectedNamespace)
+    if (!selected) return
+
+    setIsLoading(true)
+
+    const loadValue = async () => {
+      try {
+        let value: unknown
+
+        if (selected.type === 'local') {
+          value = keyValue.value
+        } else {
+          const accountId = selected.accountId || remoteConnections[0]?.accountId
+          if (!accountId) throw new Error('Account ID not found')
+
+          value = await getRemoteValue(accountId, selected.id, keyValue.key)
+        }
+
+        setEditingKey(keyValue.key)
+        setEditingValue(value)
+        setIsEditing(true)
+      } catch (error) {
+        toast({
+          title: 'ERROR',
+          description: String(error),
+          variant: 'destructive',
+        })
+      } finally {
+        setIsLoading(false)
+      }
     }
+
+    loadValue()
   }
 
   const handleDelete = async (keyIds: string[]) => {
-    if (!selectedNamespace || !selectedFolder || keyIds.length === 0) {
-      return
-    }
+    if (!selectedNamespace) return
+
+    const selected = namespaces.find(ns => ns.id === selectedNamespace)
+    if (!selected) return
+
+    const keysToDelete = keyIds
+      .map(id => keyValues.find(kv => kv.id === id)?.key)
+      .filter((k): k is string => !!k)
+
+    if (keysToDelete.length === 0) return
 
     setIsLoading(true)
     try {
-      const keysToDelete = keyIds
-        .map(id => keyValues.find(kv => kv.id === id)?.key || '')
-        .filter(k => k !== '')
+      if (selected.type === 'local') {
+        if (!selectedFolder) throw new Error('No folder selected')
 
-      const updatedNamespaces = await deleteKeys(selectedNamespace, selectedFolder, keysToDelete)
+        const updatedNamespaces = await deleteKeys(selectedNamespace, selectedFolder, keysToDelete)
 
-      setNamespaces(updatedNamespaces)
+        setNamespaces(prev => {
+          const remote = prev.filter(ns => ns.type === 'remote')
+          return [...remote, ...updatedNamespaces]
+        })
 
-      const updatedNamespace = updatedNamespaces.find(ns => ns.id === selectedNamespace)
-      if (updatedNamespace) {
-        setKeyValues(updatedNamespace.entries)
+        const updatedNamespace = updatedNamespaces.find(ns => ns.id === selectedNamespace)
+        if (updatedNamespace) {
+          setKeyValues(updatedNamespace.entries)
+        }
+      } else {
+        const accountId = selected.accountId || remoteConnections[0]?.accountId
+        if (!accountId) throw new Error('Account ID not found')
+
+        await deleteRemoteKeys(accountId, selectedNamespace, keysToDelete)
+
+        const entries = await getRemoteKeys(accountId, selectedNamespace)
+        setKeyValues(entries)
       }
 
       setSelectedKeys([])
@@ -139,19 +303,41 @@ export function KVExplorer() {
   }
 
   const handleSaveEdit = async () => {
-    if (!editingKey || !selectedNamespace || !selectedFolder) {
-      return
-    }
+    if (!editingKey || !selectedNamespace) return
+
+    const selected = namespaces.find(ns => ns.id === selectedNamespace)
+    if (!selected) return
 
     setIsLoading(true)
     try {
-      const updatedNamespaces = await updateValue(selectedNamespace, selectedFolder, editingKey, editingValue)
+      if (selected.type === 'local') {
+        if (!selectedFolder) throw new Error('No folder selected')
 
-      setNamespaces(updatedNamespaces)
+        const updatedNamespaces = await updateValue(
+          selectedNamespace,
+          selectedFolder,
+          editingKey,
+          editingValue
+        )
 
-      const updatedNamespace = updatedNamespaces.find(ns => ns.id === selectedNamespace)
-      if (updatedNamespace) {
-        setKeyValues(updatedNamespace.entries)
+        setNamespaces(prev => {
+          const remote = prev.filter(ns => ns.type === 'remote')
+          return [...remote, ...updatedNamespaces]
+        })
+
+        const updatedNamespace = updatedNamespaces.find(ns => ns.id === selectedNamespace)
+        if (updatedNamespace) {
+          setKeyValues(updatedNamespace.entries)
+        }
+      } else {
+        const accountId = selected.accountId || remoteConnections[0]?.accountId
+        if (!accountId) throw new Error('Account ID not found')
+
+        await updateRemoteValue(accountId, selectedNamespace, editingKey, editingValue)
+
+        if (viewingKeyId) {
+          setSelectedValue(editingValue)
+        }
       }
 
       setIsEditing(false)
@@ -186,6 +372,8 @@ export function KVExplorer() {
         version="v1.0"
         selectedFolder={selectedFolder}
         onFolderSelect={handleFolderSelect}
+        onRemoteConnect={handleRemoteConnect}
+        remoteConnections={remoteConnections.length}
         isLoading={isLoading}
       />
       <ResizablePanelGroup direction="horizontal" className="flex-1 overflow-hidden">
@@ -227,7 +415,7 @@ export function KVExplorer() {
                     onDeleteSelected={() => handleDelete(selectedKeys)}
                   />
                 </ResizablePanel>
-                {hasValue(selectedValue) && (
+                {selectedValue !== null && (
                   <>
                     <ResizableHandle
                       withHandle
@@ -243,6 +431,12 @@ export function KVExplorer() {
           </main>
         </ResizablePanel>
       </ResizablePanelGroup>
+
+      <RemoteConnectionModal
+        isOpen={isRemoteModalOpen}
+        onClose={() => setIsRemoteModalOpen(false)}
+        onSave={handleRemoteConnectionSave}
+      />
     </>
   )
 }
