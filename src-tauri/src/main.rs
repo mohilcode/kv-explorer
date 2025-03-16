@@ -11,7 +11,7 @@ use app_state::AppState;
 use handlers::local::{select_folder, update_kv, delete_kv};
 use handlers::remote::{
     connect_cloudflare, get_remote_namespaces, get_remote_keys,
-    get_remote_value, update_remote_kv, delete_remote_kv
+    get_remote_value, update_remote_kv, delete_remote_kv, disconnect_cloudflare
 };
 
 fn main() {
@@ -22,6 +22,7 @@ fn main() {
             update_kv,
             delete_kv,
             connect_cloudflare,
+            disconnect_cloudflare,
             get_remote_namespaces,
             get_remote_keys,
             get_remote_value,

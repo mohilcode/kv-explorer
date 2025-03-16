@@ -1,10 +1,16 @@
-import type React from "react"
-import { useState } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Cloud, Key, User } from "lucide-react"
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Cloud, Key, User } from 'lucide-react'
+import type React from 'react'
+import { useState } from 'react'
 
 interface RemoteConnectionModalProps {
   isOpen: boolean
@@ -13,16 +19,16 @@ interface RemoteConnectionModalProps {
 }
 
 export function RemoteConnectionModal({ isOpen, onClose, onSave }: RemoteConnectionModalProps) {
-  const [accountId, setAccountId] = useState("")
-  const [apiToken, setApiToken] = useState("")
+  const [accountId, setAccountId] = useState('')
+  const [apiToken, setApiToken] = useState('')
   const [isTokenVisible, setIsTokenVisible] = useState(false)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (accountId.trim() && apiToken.trim()) {
       onSave(accountId, apiToken)
-      setAccountId("")
-      setApiToken("")
+      setAccountId('')
+      setApiToken('')
       setIsTokenVisible(false)
     }
   }
@@ -49,7 +55,7 @@ export function RemoteConnectionModal({ isOpen, onClose, onSave }: RemoteConnect
               <Input
                 id="accountId"
                 value={accountId}
-                onChange={(e) => setAccountId(e.target.value)}
+                onChange={e => setAccountId(e.target.value)}
                 className="border-zinc-800 bg-zinc-900 font-mono text-sm focus-visible:ring-zinc-700"
                 placeholder="Enter your Cloudflare account ID"
                 required
@@ -66,9 +72,9 @@ export function RemoteConnectionModal({ isOpen, onClose, onSave }: RemoteConnect
               <div className="relative">
                 <Input
                   id="apiToken"
-                  type={isTokenVisible ? "text" : "password"}
+                  type={isTokenVisible ? 'text' : 'password'}
                   value={apiToken}
-                  onChange={(e) => setApiToken(e.target.value)}
+                  onChange={e => setApiToken(e.target.value)}
                   className="border-zinc-800 bg-zinc-900 font-mono text-sm focus-visible:ring-zinc-700"
                   placeholder="Enter your API token"
                   required
@@ -80,7 +86,7 @@ export function RemoteConnectionModal({ isOpen, onClose, onSave }: RemoteConnect
                   className="absolute right-0 top-0 h-full px-3 hover:bg-transparent hover:text-white cursor-pointer"
                   onClick={() => setIsTokenVisible(!isTokenVisible)}
                 >
-                  {isTokenVisible ? "HIDE" : "SHOW"}
+                  {isTokenVisible ? 'HIDE' : 'SHOW'}
                 </Button>
               </div>
               <p className="text-xs text-zinc-500">Requires Workers KV access permissions</p>
@@ -104,4 +110,3 @@ export function RemoteConnectionModal({ isOpen, onClose, onSave }: RemoteConnect
     </Dialog>
   )
 }
-

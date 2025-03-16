@@ -1,13 +1,13 @@
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Cloud, Folder, RefreshCw } from 'lucide-react'
-
 interface HeaderProps {
   title: string
   version: string
   selectedFolder: string | null
   onFolderSelect: () => void
   onRemoteConnect: () => void
+  onRemoteDisconnect: () => void
   remoteConnections: number
   isLoading: boolean
 }
@@ -18,8 +18,9 @@ export function Header({
   selectedFolder,
   onFolderSelect,
   onRemoteConnect,
+  onRemoteDisconnect,
   remoteConnections,
-  isLoading
+  isLoading,
 }: HeaderProps) {
   return (
     <header className="flex flex-col border-b border-zinc-800">
@@ -40,15 +41,27 @@ export function Header({
 
         <Separator orientation="vertical" className="mx-4 h-6" />
 
-        <Button
-          onClick={onRemoteConnect}
-          variant="outline"
-          className="gap-2 border-zinc-700 bg-transparent hover:bg-zinc-900 cursor-pointer"
-          disabled={isLoading}
-        >
-          <Cloud className="h-4 w-4 text-cyan-500" />
-          <span>CONNECT REMOTE KV</span>
-        </Button>
+        {remoteConnections > 0 ? (
+          <Button
+            onClick={onRemoteDisconnect}
+            variant="outline"
+            className="gap-2 border-red-700 bg-transparent hover:bg-red-900/30 cursor-pointer"
+            disabled={isLoading}
+          >
+            <Cloud className="h-4 w-4 text-red-500" />
+            <span>REMOVE CONNECTION</span>
+          </Button>
+        ) : (
+          <Button
+            onClick={onRemoteConnect}
+            variant="outline"
+            className="gap-2 border-zinc-700 bg-transparent hover:bg-zinc-900 cursor-pointer"
+            disabled={isLoading}
+          >
+            <Cloud className="h-4 w-4 text-cyan-500" />
+            <span>CONNECT REMOTE KV</span>
+          </Button>
+        )}
 
         <div className="ml-4 flex-1 truncate text-sm">
           {selectedFolder && (
@@ -58,7 +71,8 @@ export function Header({
           )}
           {remoteConnections > 0 && (
             <div className="truncate text-cyan-400">
-              <span className="font-bold mr-1">REMOTE:</span> {remoteConnections} connection{remoteConnections !== 1 ? 's' : ''}
+              <span className="font-bold mr-1">REMOTE:</span> {remoteConnections} connection
+              {remoteConnections !== 1 ? 's' : ''}
             </div>
           )}
           {!selectedFolder && remoteConnections === 0 && (
@@ -76,7 +90,9 @@ export function Header({
       <div className="flex px-4 text-xs text-zinc-500">
         <div className="flex-1">WRANGLER KV EXPLORER</div>
         <div className="flex items-center gap-2">
-          <span>Last updated: {new Date().toLocaleDateString()}, {new Date().toLocaleTimeString()}</span>
+          <span>
+            Last updated: {new Date().toLocaleDateString()}, {new Date().toLocaleTimeString()}
+          </span>
         </div>
       </div>
     </header>

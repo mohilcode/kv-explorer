@@ -1,5 +1,5 @@
-import { invoke } from '@tauri-apps/api/tauri'
 import { open } from '@tauri-apps/api/dialog'
+import { invoke } from '@tauri-apps/api/tauri'
 
 export interface KVEntry {
   id: string
@@ -13,9 +13,9 @@ export interface KVEntry {
 export interface KVNamespace {
   id: string
   name: string
-  count: number
+  count?: number
   entries: KVEntry[]
-  type?: "local" | "remote"
+  type: 'local' | 'remote'
   accountId?: string
 }
 
@@ -36,7 +36,7 @@ export async function selectFolder() {
     id: ns.id,
     name: ns.id.toUpperCase(),
     count: ns.entries.length,
-    type: "local" as const,
+    type: 'local' as const,
     entries: ns.entries.map((entry, index) => ({
       id: index.toString(),
       key: entry.key,
@@ -49,7 +49,7 @@ export async function selectFolder() {
 
   return {
     folderPath: selected as string,
-    namespaces: transformedNamespaces
+    namespaces: transformedNamespaces,
   }
 }
 
@@ -62,7 +62,12 @@ export async function deleteKeys(namespaceId: string, folderPath: string, keysTo
   return await refreshNamespaces(folderPath)
 }
 
-export async function updateValue(namespaceId: string, folderPath: string, key: string, value: unknown) {
+export async function updateValue(
+  namespaceId: string,
+  folderPath: string,
+  key: string,
+  value: unknown
+) {
   await invoke('update_kv', {
     namespaceId,
     key,
@@ -79,7 +84,7 @@ async function refreshNamespaces(folderPath: string) {
     id: ns.id,
     name: ns.id.toUpperCase(),
     count: ns.entries.length,
-    type: "local" as const,
+    type: 'local' as const,
     entries: ns.entries.map((entry, index) => ({
       id: index.toString(),
       key: entry.key,
@@ -103,39 +108,52 @@ export async function getRemoteNamespaces(): Promise<KVNamespace[]> {
 export async function getRemoteKeys(accountId: string, namespaceId: string): Promise<KVEntry[]> {
   const entries = await invoke<KVEntry[]>('get_remote_keys', {
     accountId,
-    namespaceId
+    namespaceId,
   })
 
   return entries.map((entry, index) => ({
     ...entry,
-    id: index.toString()
+    id: index.toString(),
   }))
 }
 
-export async function getRemoteValue(accountId: string, namespaceId: string, keyName: string): Promise<unknown> {
+export async function getRemoteValue(
+  accountId: string,
+  namespaceId: string,
+  keyName: string
+): Promise<unknown> {
   return invoke('get_remote_value', {
     accountId,
     namespaceId,
-    keyName
+    keyName,
   })
 }
 
-export async function updateRemoteValue(accountId: string, namespaceId: string, keyName: string, value: unknown): Promise<void> {
+export async function updateRemoteValue(
+  accountId: string,
+  namespaceId: string,
+  keyName: string,
+  value: unknown
+): Promise<void> {
   const valueStr = JSON.stringify(value)
 
   await invoke('update_remote_kv', {
     accountId,
     namespaceId,
     keyName,
-    value: valueStr
+    value: valueStr,
   })
 }
 
-export async function deleteRemoteKeys(accountId: string, namespaceId: string, keys: string[]): Promise<void> {
+export async function deleteRemoteKeys(
+  accountId: string,
+  namespaceId: string,
+  keys: string[]
+): Promise<void> {
   await invoke('delete_remote_kv', {
     accountId,
     namespaceId,
-    keys
+    keys,
   })
 }
 

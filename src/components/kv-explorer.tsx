@@ -1,26 +1,27 @@
-import { useEffect, useState } from 'react'
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { Header } from '@/components/header'
 import { KeyValueTable } from '@/components/key-value-table'
 import { NamespaceSidebar } from '@/components/namespace-sidebar'
+import { RemoteConnectionModal } from '@/components/remote-connection-modal'
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { ValueEditor } from '@/components/value-editor'
 import { ValuePreview } from '@/components/value-preview'
-import { RemoteConnectionModal } from '@/components/remote-connection-modal'
 import { useToast } from '@/hooks/use-toast'
 import {
   type KVEntry,
   type KVNamespace,
-  selectFolder,
-  deleteKeys,
-  updateValue,
-  formatExpiration,
   connectCloudflare,
-  getRemoteNamespaces,
+  deleteKeys,
+  deleteRemoteKeys,
+  formatExpiration,
   getRemoteKeys,
+  getRemoteNamespaces,
   getRemoteValue,
+  selectFolder,
   updateRemoteValue,
-  deleteRemoteKeys
+  updateValue,
 } from '@/lib/api'
+import { invoke } from '@tauri-apps/api/tauri'
+import { useEffect, useState } from 'react'
 
 export function KVExplorer() {
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null)
@@ -113,7 +114,11 @@ export function KVExplorer() {
 
       setNamespaces(prev => {
         const local = prev.filter(ns => ns.type === 'local')
-        return [...local, ...remoteNamespaces]
+        const typed = remoteNamespaces.map(ns => ({
+          ...ns,
+          type: ns.type || 'remote',
+        }))
+        return [...local, ...typed]
       })
     } catch (error) {
       toast({
@@ -359,6 +364,41 @@ export function KVExplorer() {
     }
   }
 
+  const handleRemoteDisconnect = async () => {
+    try {
+      setIsLoading(true)
+      await invoke('disconnect_cloudflare')
+
+      setRemoteConnections([])
+
+      setNamespaces(prev => prev.filter(ns => ns.type === 'local'))
+
+      if (
+        selectedNamespace &&
+        namespaces.find(ns => ns.id === selectedNamespace)?.type === 'remote'
+      ) {
+        setSelectedNamespace(null)
+        setKeyValues([])
+        setSelectedKeys([])
+        setViewingKeyId(null)
+        setSelectedValue(null)
+      }
+
+      toast({
+        title: 'REMOTE DISCONNECTED',
+        description: 'Successfully disconnected from remote KV',
+      })
+    } catch (error) {
+      toast({
+        title: 'ERROR',
+        description: String(error),
+        variant: 'destructive',
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const handleCancelEdit = () => {
     setIsEditing(false)
     setEditingKey(null)
@@ -373,6 +413,7 @@ export function KVExplorer() {
         selectedFolder={selectedFolder}
         onFolderSelect={handleFolderSelect}
         onRemoteConnect={handleRemoteConnect}
+        onRemoteDisconnect={handleRemoteDisconnect}
         remoteConnections={remoteConnections.length}
         isLoading={isLoading}
       />

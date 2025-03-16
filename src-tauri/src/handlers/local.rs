@@ -119,6 +119,8 @@ pub fn select_folder(path: String, state: State<AppState>) -> Result<Vec<KVNames
             name: namespace_id.to_uppercase(),
             entries,
             r#type: "local".to_string(),
+            account_id: None,
+            count: None,
         });
     }
 

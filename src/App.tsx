@@ -1,7 +1,7 @@
-import { useEffect } from 'react'
-import { Toaster } from '@/components/ui/toaster'
 import { GridBackground } from '@/components/grid-background'
 import { KVExplorer } from '@/components/kv-explorer'
+import { Toaster } from '@/components/ui/toaster'
+import { useEffect } from 'react'
 
 export default function App() {
   useEffect(() => {

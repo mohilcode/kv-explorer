@@ -24,6 +24,10 @@ pub struct KVNamespace {
     pub name: String,
     #[serde(default = "default_namespace_type")]
     pub r#type: String,
+    #[serde(default)]
+    pub account_id: Option<String>,
+    #[serde(default)]
+    pub count: Option<usize>,
 }
 
 pub fn default_namespace_type() -> String {
