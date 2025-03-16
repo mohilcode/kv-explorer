@@ -6,9 +6,11 @@
 mod app_state;
 mod models;
 mod handlers;
+mod persistence;
 
 use app_state::AppState;
-use handlers::local::{select_folder, update_kv, delete_kv};
+use tauri::Manager;
+use handlers::local::{add_folder, remove_folder, load_folder, get_folders, update_kv, delete_kv};
 use handlers::remote::{
     connect_cloudflare, get_remote_namespaces, get_remote_keys,
     get_remote_value, update_remote_kv, delete_remote_kv, disconnect_cloudflare
@@ -16,9 +18,20 @@ use handlers::remote::{
 
 fn main() {
     tauri::Builder::default()
-        .manage(AppState::new())
+        .setup(|app| {
+            let app_handle = app.handle();
+            let app_data_dir = app_handle.path_resolver().app_data_dir().unwrap_or_default();
+
+            std::fs::create_dir_all(&app_data_dir).ok();
+
+            app.manage(AppState::new(app_data_dir));
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
-            select_folder,
+            get_folders,
+            add_folder,
+            remove_folder,
+            load_folder,
             update_kv,
             delete_kv,
             connect_cloudflare,

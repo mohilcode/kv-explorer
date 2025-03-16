@@ -1,3 +1,4 @@
+// src-tauri/src/handlers/remote.rs
 use reqwest::{Client, header};
 use serde_json::Value;
 use tauri::{command, State};
@@ -8,6 +9,7 @@ use crate::models::cloudflare::{CloudflareListResponse, CloudflareNamespace, Clo
 
 #[command]
 pub async fn connect_cloudflare(account_id: String, api_token: String, state: State<'_, AppState>) -> Result<(), String> {
+    // Validate connection first
     let client = Client::new();
     let url = format!("https://api.cloudflare.com/client/v4/accounts/{}/storage/kv/namespaces", account_id);
 
@@ -23,12 +25,25 @@ pub async fn connect_cloudflare(account_id: String, api_token: String, state: St
         return Err(format!("API authentication failed with status: {}", status));
     }
 
-    let mut connections = state.remote_connections.lock().unwrap();
-    connections.clear(); // Clear existing connections
-    connections.push(RemoteConnection {
-        account_id,
-        api_token,
-    });
+    // Save connection to database
+    {
+        let db = state.db.lock().unwrap();
+        if let Err(e) = db.save_remote_connection(&account_id, &api_token) {
+            return Err(format!("Failed to save connection: {}", e));
+        }
+    }
+
+    // Update connection in state
+    {
+        let mut connections = state.remote_connections.lock().unwrap();
+        // Check if connection already exists
+        if !connections.iter().any(|c| c.account_id == account_id) {
+            connections.push(RemoteConnection {
+                account_id,
+                api_token,
+            });
+        }
+    }
 
     Ok(())
 }
@@ -73,6 +88,14 @@ pub async fn get_remote_namespaces(state: State<'_, AppState>) -> Result<Vec<KVN
                 .collect::<Vec<_>>()
                 .join(", ");
             return Err(format!("API request failed: {}", error_msg));
+        }
+
+        // Update timestamp
+        {
+            let db = state.db.lock().unwrap();
+            if let Err(e) = db.update_connection_timestamp(&connection.account_id) {
+                eprintln!("Failed to update connection timestamp: {}", e);
+            }
         }
 
         let analytics_url = format!(
@@ -144,6 +167,7 @@ pub async fn get_remote_namespaces(state: State<'_, AppState>) -> Result<Vec<KVN
                 entries: vec![], // Empty entries, use count field instead
                 r#type: "remote".to_string(),
                 account_id: Some(connection.account_id.clone()),
+                folder_id: None,
                 count: count,
             });
         }
@@ -152,6 +176,7 @@ pub async fn get_remote_namespaces(state: State<'_, AppState>) -> Result<Vec<KVN
     Ok(all_namespaces)
 }
 
+// src-tauri/src/handlers/remote.rs (continued)
 #[command]
 pub async fn get_remote_keys(account_id: String, namespace_id: String, state: State<'_, AppState>) -> Result<Vec<KVEntry>, String> {
     let connections = state.remote_connections.lock().unwrap().clone();
@@ -189,6 +214,14 @@ pub async fn get_remote_keys(account_id: String, namespace_id: String, state: St
             .collect::<Vec<_>>()
             .join(", ");
         return Err(format!("API request failed: {}", error_msg));
+    }
+
+    // Update timestamp
+    {
+        let db = state.db.lock().unwrap();
+        if let Err(e) = db.update_connection_timestamp(&account_id) {
+            eprintln!("Failed to update connection timestamp: {}", e);
+        }
     }
 
     let mut entries = Vec::new();
@@ -230,6 +263,14 @@ pub async fn get_remote_value(account_id: String, namespace_id: String, key_name
         return Err(format!("API request failed with status: {}", response.status()));
     }
 
+    // Update timestamp
+    {
+        let db = state.db.lock().unwrap();
+        if let Err(e) = db.update_connection_timestamp(&account_id) {
+            eprintln!("Failed to update connection timestamp: {}", e);
+        }
+    }
+
     let text = response.text().await
         .map_err(|e| format!("Failed to get response text: {}", e))?;
 
@@ -269,6 +310,14 @@ pub async fn update_remote_kv(account_id: String, namespace_id: String, key_name
         return Err(format!("API request failed with status: {}", response.status()));
     }
 
+    // Update timestamp
+    {
+        let db = state.db.lock().unwrap();
+        if let Err(e) = db.update_connection_timestamp(&account_id) {
+            eprintln!("Failed to update connection timestamp: {}", e);
+        }
+    }
+
     Ok(())
 }
 
@@ -281,6 +330,14 @@ pub async fn delete_remote_kv(account_id: String, namespace_id: String, keys: Ve
         .ok_or_else(|| "Connection not found".to_string())?;
 
     let client = Client::new();
+
+    // Update timestamp
+    {
+        let db = state.db.lock().unwrap();
+        if let Err(e) = db.update_connection_timestamp(&account_id) {
+            eprintln!("Failed to update connection timestamp: {}", e);
+        }
+    }
 
     if keys.len() == 1 {
         let url = format!(
@@ -323,7 +380,19 @@ pub async fn delete_remote_kv(account_id: String, namespace_id: String, keys: Ve
 
 #[command]
 pub async fn disconnect_cloudflare(state: State<'_, AppState>) -> Result<(), String> {
-    let mut connections = state.remote_connections.lock().unwrap();
-    connections.clear();
+    // Remove from database
+    {
+        let db = state.db.lock().unwrap();
+        if let Err(e) = db.remove_all_connections() {
+            return Err(format!("Failed to remove connections from database: {}", e));
+        }
+    }
+
+    // Clear connections from state
+    {
+        let mut connections = state.remote_connections.lock().unwrap();
+        connections.clear();
+    }
+
     Ok(())
 }

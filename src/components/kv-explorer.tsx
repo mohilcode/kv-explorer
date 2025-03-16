@@ -9,14 +9,18 @@ import { useToast } from '@/hooks/use-toast'
 import {
   type KVEntry,
   type KVNamespace,
+  type LocalFolder,
+  addFolder,
   connectCloudflare,
   deleteKeys,
   deleteRemoteKeys,
   formatExpiration,
+  getFolders,
   getRemoteKeys,
   getRemoteNamespaces,
   getRemoteValue,
-  selectFolder,
+  loadFolder,
+  removeFolder,
   updateRemoteValue,
   updateValue,
 } from '@/lib/api'
@@ -24,7 +28,7 @@ import { invoke } from '@tauri-apps/api/tauri'
 import { useEffect, useState } from 'react'
 
 export function KVExplorer() {
-  const [selectedFolder, setSelectedFolder] = useState<string | null>(null)
+  const [localFolders, setLocalFolders] = useState<LocalFolder[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [namespaces, setNamespaces] = useState<KVNamespace[]>([])
   const [selectedNamespace, setSelectedNamespace] = useState<string | null>(null)
@@ -40,34 +44,125 @@ export function KVExplorer() {
   const { toast } = useToast()
 
   useEffect(() => {
+    loadFolders()
+  }, [])
+
+  useEffect(() => {
     if (remoteConnections.length > 0) {
       loadRemoteNamespaces()
     }
   }, [remoteConnections])
 
+  const loadFolders = async () => {
+    try {
+      setIsLoading(true)
+      const folders = await getFolders()
+      setLocalFolders(folders)
+
+      if (folders.length > 0) {
+        await loadFolderNamespaces(folders[0].id)
+      }
+
+      await loadRemoteNamespaces()
+    } catch (error) {
+      toast({
+        title: 'ERROR',
+        description: String(error),
+        variant: 'destructive',
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const loadFolderNamespaces = async (folderId: number) => {
+    try {
+      setIsLoading(true)
+      const folderNamespaces = await loadFolder(folderId)
+
+      setNamespaces(prev => {
+        const filtered = prev.filter(
+          ns => ns.type === 'remote' || (ns.type === 'local' && ns.folderId !== folderId)
+        )
+        return [...filtered, ...folderNamespaces]
+      })
+
+      if (folderNamespaces.length > 0) {
+        setSelectedNamespace(folderNamespaces[0].id)
+        setKeyValues(folderNamespaces[0].entries)
+      }
+    } catch (error) {
+      toast({
+        title: 'ERROR',
+        description: String(error),
+        variant: 'destructive',
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const handleFolderSelect = async () => {
     try {
       setIsLoading(true)
-      const { folderPath, namespaces: localNamespaces } = await selectFolder()
+      const { folderId, namespaces: folderNamespaces } = await addFolder()
 
-      if (folderPath) {
-        setSelectedFolder(folderPath)
+      if (folderId) {
+        const folders = await getFolders()
+        setLocalFolders(folders)
+
         setNamespaces(prev => {
-          // Keep remote namespaces, replace local ones
-          const remote = prev.filter(ns => ns.type === 'remote')
-          return [...remote, ...localNamespaces]
+          const filtered = prev.filter(ns => ns.type === 'remote' || ns.folderId !== folderId)
+          return [...filtered, ...folderNamespaces]
         })
 
-        if (localNamespaces.length > 0) {
-          setSelectedNamespace(localNamespaces[0].id)
-          setKeyValues(localNamespaces[0].entries)
+        if (folderNamespaces.length > 0) {
+          setSelectedNamespace(folderNamespaces[0].id)
+          setKeyValues(folderNamespaces[0].entries)
         }
 
         toast({
-          title: 'FOLDER SELECTED',
+          title: 'FOLDER ADDED',
           description: 'Successfully loaded KV namespaces',
         })
       }
+    } catch (error) {
+      toast({
+        title: 'ERROR',
+        description: String(error),
+        variant: 'destructive',
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleRemoveFolder = async (folderId: number) => {
+    try {
+      setIsLoading(true)
+      await removeFolder(folderId)
+
+      const folders = await getFolders()
+      setLocalFolders(folders)
+
+      setNamespaces(prev => prev.filter(ns => ns.folderId !== folderId))
+
+      const selectedBelongsToRemovedFolder = namespaces.some(
+        ns => ns.id === selectedNamespace && ns.folderId === folderId
+      )
+
+      if (selectedBelongsToRemovedFolder) {
+        setSelectedNamespace(null)
+        setKeyValues([])
+        setSelectedKeys([])
+        setViewingKeyId(null)
+        setSelectedValue(null)
+      }
+
+      toast({
+        title: 'FOLDER REMOVED',
+        description: 'Successfully removed folder',
+      })
     } catch (error) {
       toast({
         title: 'ERROR',
@@ -96,6 +191,8 @@ export function KVExplorer() {
       })
 
       setIsRemoteModalOpen(false)
+
+      await loadRemoteNamespaces()
     } catch (error) {
       toast({
         title: 'ERROR',
@@ -265,18 +362,25 @@ export function KVExplorer() {
     setIsLoading(true)
     try {
       if (selected.type === 'local') {
-        if (!selectedFolder) throw new Error('No folder selected')
+        if (!selected.folderId) throw new Error('No folder ID found')
 
-        const updatedNamespaces = await deleteKeys(selectedNamespace, selectedFolder, keysToDelete)
+        await deleteKeys(selected.folderId, selectedNamespace, keysToDelete)
 
-        setNamespaces(prev => {
-          const remote = prev.filter(ns => ns.type === 'remote')
-          return [...remote, ...updatedNamespaces]
-        })
+        if (selected.folderId) {
+          const folderNamespaces = await loadFolder(selected.folderId)
 
-        const updatedNamespace = updatedNamespaces.find(ns => ns.id === selectedNamespace)
-        if (updatedNamespace) {
-          setKeyValues(updatedNamespace.entries)
+          setNamespaces(prev => {
+            const filtered = prev.filter(
+              ns =>
+                ns.type === 'remote' || (ns.type === 'local' && ns.folderId !== selected.folderId)
+            )
+            return [...filtered, ...folderNamespaces]
+          })
+
+          const updatedNamespace = folderNamespaces.find(ns => ns.id === selectedNamespace)
+          if (updatedNamespace) {
+            setKeyValues(updatedNamespace.entries)
+          }
         }
       } else {
         const accountId = selected.accountId || remoteConnections[0]?.accountId
@@ -316,23 +420,25 @@ export function KVExplorer() {
     setIsLoading(true)
     try {
       if (selected.type === 'local') {
-        if (!selectedFolder) throw new Error('No folder selected')
+        if (!selected.folderId) throw new Error('No folder ID found')
 
-        const updatedNamespaces = await updateValue(
-          selectedNamespace,
-          selectedFolder,
-          editingKey,
-          editingValue
-        )
+        await updateValue(selected.folderId, selectedNamespace, editingKey, editingValue)
 
-        setNamespaces(prev => {
-          const remote = prev.filter(ns => ns.type === 'remote')
-          return [...remote, ...updatedNamespaces]
-        })
+        if (selected.folderId) {
+          const folderNamespaces = await loadFolder(selected.folderId)
 
-        const updatedNamespace = updatedNamespaces.find(ns => ns.id === selectedNamespace)
-        if (updatedNamespace) {
-          setKeyValues(updatedNamespace.entries)
+          setNamespaces(prev => {
+            const filtered = prev.filter(
+              ns =>
+                ns.type === 'remote' || (ns.type === 'local' && ns.folderId !== selected.folderId)
+            )
+            return [...filtered, ...folderNamespaces]
+          })
+
+          const updatedNamespace = folderNamespaces.find(ns => ns.id === selectedNamespace)
+          if (updatedNamespace) {
+            setKeyValues(updatedNamespace.entries)
+          }
         }
       } else {
         const accountId = selected.accountId || remoteConnections[0]?.accountId
@@ -343,6 +449,9 @@ export function KVExplorer() {
         if (viewingKeyId) {
           setSelectedValue(editingValue)
         }
+
+        const entries = await getRemoteKeys(accountId, selectedNamespace)
+        setKeyValues(entries)
       }
 
       setIsEditing(false)
@@ -410,7 +519,7 @@ export function KVExplorer() {
       <Header
         title="WRANGLER KV EXPLORER"
         version="v1.0"
-        selectedFolder={selectedFolder}
+        localFolders={localFolders}
         onFolderSelect={handleFolderSelect}
         onRemoteConnect={handleRemoteConnect}
         onRemoteDisconnect={handleRemoteDisconnect}
@@ -423,6 +532,8 @@ export function KVExplorer() {
             namespaces={namespaces}
             selectedNamespace={selectedNamespace}
             onNamespaceSelect={handleNamespaceSelect}
+            localFolders={localFolders}
+            onRemoveFolder={handleRemoveFolder}
           />
         </ResizablePanel>
         <ResizableHandle

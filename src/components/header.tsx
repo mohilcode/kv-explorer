@@ -1,10 +1,11 @@
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Cloud, Folder, RefreshCw } from 'lucide-react'
+
 interface HeaderProps {
   title: string
   version: string
-  selectedFolder: string | null
+  localFolders: { id: number; name: string; path: string }[]
   onFolderSelect: () => void
   onRemoteConnect: () => void
   onRemoteDisconnect: () => void
@@ -15,7 +16,7 @@ interface HeaderProps {
 export function Header({
   title,
   version,
-  selectedFolder,
+  localFolders,
   onFolderSelect,
   onRemoteConnect,
   onRemoteDisconnect,
@@ -36,7 +37,7 @@ export function Header({
           disabled={isLoading}
         >
           <Folder className="h-4 w-4" />
-          <span>SELECT WRANGLER FOLDER</span>
+          <span>ADD WRANGLER FOLDER</span>
         </Button>
 
         <Separator orientation="vertical" className="mx-4 h-6" />
@@ -64,9 +65,10 @@ export function Header({
         )}
 
         <div className="ml-4 flex-1 truncate text-sm">
-          {selectedFolder && (
+          {localFolders.length > 0 && (
             <div className="truncate text-zinc-400">
-              <span className="font-bold mr-1">LOCAL:</span> {selectedFolder}
+              <span className="font-bold mr-1">LOCAL:</span> {localFolders.length} folder
+              {localFolders.length !== 1 ? 's' : ''}
             </div>
           )}
           {remoteConnections > 0 && (
@@ -75,7 +77,7 @@ export function Header({
               {remoteConnections !== 1 ? 's' : ''}
             </div>
           )}
-          {!selectedFolder && remoteConnections === 0 && (
+          {localFolders.length === 0 && remoteConnections === 0 && (
             <div className="text-zinc-500">NO CONNECTION</div>
           )}
         </div>

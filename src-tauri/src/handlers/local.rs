@@ -1,17 +1,97 @@
+// src-tauri/src/handlers/local.rs
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use rusqlite::Connection;
 use serde_json::Value;
 use tauri::{command, State};
 
 use crate::app_state::AppState;
-use crate::models::kv::{KVEntry, KVNamespace};
+use crate::models::kv::{KVEntry, KVNamespace, LocalFolder, LocalFolderInfo};
+
+fn extract_folder_name(path: &Path) -> String {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("Unknown Folder")
+        .to_string()
+}
 
 #[command]
-pub fn select_folder(path: String, state: State<AppState>) -> Result<Vec<KVNamespace>, String> {
-    let path = PathBuf::from(path);
-    *state.current_path.lock().unwrap() = Some(path.clone());
+pub fn get_folders(state: State<AppState>) -> Vec<LocalFolderInfo> {
+    let folders = state.folders.lock().unwrap();
+    folders.values().map(|f| f.into()).collect()
+}
 
+#[command]
+pub fn add_folder(path: String, state: State<AppState>) -> Result<Vec<KVNamespace>, String> {
+    let path = PathBuf::from(path);
+    let folder_name = extract_folder_name(&path);
+
+    // Save folder to database
+    let folder_id = {
+        let db = state.db.lock().unwrap();
+        match db.save_folder(&path.to_string_lossy(), &folder_name) {
+            Ok(id) => id,
+            Err(e) => return Err(format!("Failed to save folder: {}", e))
+        }
+    };
+
+    // Add folder to state
+    let local_folder = LocalFolder {
+        id: folder_id,
+        path: path.clone(),
+        name: folder_name,
+    };
+
+    {
+        let mut folders = state.folders.lock().unwrap();
+        folders.insert(folder_id, local_folder);
+    }
+
+    // Load namespaces
+    load_namespaces_for_folder(&path, folder_id)
+}
+
+#[command]
+pub fn remove_folder(folder_id: i64, state: State<AppState>) -> Result<(), String> {
+    // Remove from database
+    {
+        let db = state.db.lock().unwrap();
+        if let Err(e) = db.remove_folder(folder_id) {
+            return Err(format!("Failed to remove folder: {}", e));
+        }
+    }
+
+    // Remove from state
+    {
+        let mut folders = state.folders.lock().unwrap();
+        folders.remove(&folder_id);
+    }
+
+    Ok(())
+}
+
+#[command]
+pub fn load_folder(folder_id: i64, state: State<AppState>) -> Result<Vec<KVNamespace>, String> {
+    let folder_path = {
+        let folders = state.folders.lock().unwrap();
+        match folders.get(&folder_id) {
+            Some(folder) => folder.path.clone(),
+            None => return Err("Folder not found".to_string())
+        }
+    };
+
+    // Update timestamp
+    {
+        let db = state.db.lock().unwrap();
+        if let Err(e) = db.update_folder_timestamp(&folder_path.to_string_lossy()) {
+            eprintln!("Failed to update folder timestamp: {}", e);
+        }
+    }
+
+    load_namespaces_for_folder(&folder_path, folder_id)
+}
+
+fn load_namespaces_for_folder(path: &PathBuf, folder_id: i64) -> Result<Vec<KVNamespace>, String> {
     let kv_path = path.join(".wrangler").join("state").join("v3").join("kv");
 
     if !kv_path.exists() {
@@ -120,6 +200,7 @@ pub fn select_folder(path: String, state: State<AppState>) -> Result<Vec<KVNames
             entries,
             r#type: "local".to_string(),
             account_id: None,
+            folder_id: Some(folder_id),
             count: None,
         });
     }
@@ -128,10 +209,13 @@ pub fn select_folder(path: String, state: State<AppState>) -> Result<Vec<KVNames
 }
 
 #[command]
-pub fn update_kv(namespace_id: String, key: String, value_str: String, state: State<AppState>) -> Result<(), String> {
-    let path = match state.current_path.lock().unwrap().as_ref() {
-        Some(path) => path.clone(),
-        None => return Err("No folder selected".to_string()),
+pub fn update_kv(folder_id: i64, namespace_id: String, key: String, value_str: String, state: State<AppState>) -> Result<(), String> {
+    let path = {
+        let folders = state.folders.lock().unwrap();
+        match folders.get(&folder_id) {
+            Some(folder) => folder.path.clone(),
+            None => return Err("Folder not found".to_string())
+        }
     };
 
     let kv_path = path.join(".wrangler").join("state").join("v3").join("kv");
@@ -187,10 +271,13 @@ pub fn update_kv(namespace_id: String, key: String, value_str: String, state: St
 }
 
 #[command]
-pub fn delete_kv(namespace_id: String, keys: Vec<String>, state: State<AppState>) -> Result<(), String> {
-    let path = match state.current_path.lock().unwrap().as_ref() {
-        Some(path) => path.clone(),
-        None => return Err("No folder selected".to_string()),
+pub fn delete_kv(folder_id: i64, namespace_id: String, keys: Vec<String>, state: State<AppState>) -> Result<(), String> {
+    let path = {
+        let folders = state.folders.lock().unwrap();
+        match folders.get(&folder_id) {
+            Some(folder) => folder.path.clone(),
+            None => return Err("Folder not found".to_string())
+        }
     };
 
     let kv_path = path.join(".wrangler").join("state").join("v3").join("kv");

@@ -1,4 +1,5 @@
 import { open } from '@tauri-apps/api/dialog'
+// src/lib/api.ts
 import { invoke } from '@tauri-apps/api/tauri'
 
 export interface KVEntry {
@@ -15,11 +16,22 @@ export interface KVNamespace {
   name: string
   count?: number
   entries: KVEntry[]
-  type: 'local' | 'remote'
+  type: string
   accountId?: string
+  folderId?: number
 }
 
-export async function selectFolder() {
+export interface LocalFolder {
+  id: number
+  path: string
+  name: string
+}
+
+export async function getFolders(): Promise<LocalFolder[]> {
+  return invoke<LocalFolder[]>('get_folders')
+}
+
+export async function addFolder(): Promise<{ folderId: number; namespaces: KVNamespace[] }> {
   const selected = await open({
     directory: true,
     multiple: false,
@@ -27,73 +39,51 @@ export async function selectFolder() {
   })
 
   if (!selected) {
-    return { folderPath: null, namespaces: [] }
+    return { folderId: 0, namespaces: [] }
   }
 
-  const result = await invoke<KVNamespace[]>('select_folder', { path: selected })
+  const result = await invoke<KVNamespace[]>('add_folder', { path: selected })
 
-  const transformedNamespaces = result.map(ns => ({
-    id: ns.id,
-    name: ns.id.toUpperCase(),
-    count: ns.entries.length,
-    type: 'local' as const,
-    entries: ns.entries.map((entry, index) => ({
-      id: index.toString(),
-      key: entry.key,
-      blob_id: entry.blob_id,
-      expiration: entry.expiration,
-      metadata: entry.metadata,
-      value: entry.value,
-    })),
-  }))
+  const folderId = result.length > 0 ? result[0].folderId || 0 : 0
 
   return {
-    folderPath: selected as string,
-    namespaces: transformedNamespaces,
+    folderId,
+    namespaces: result,
   }
 }
 
-export async function deleteKeys(namespaceId: string, folderPath: string, keysToDelete: string[]) {
+export async function removeFolder(folderId: number): Promise<void> {
+  await invoke('remove_folder', { folderId })
+}
+
+export async function loadFolder(folderId: number): Promise<KVNamespace[]> {
+  return invoke<KVNamespace[]>('load_folder', { folderId })
+}
+
+export async function deleteKeys(
+  folderId: number,
+  namespaceId: string,
+  keysToDelete: string[]
+): Promise<void> {
   await invoke('delete_kv', {
+    folderId,
     namespaceId,
     keys: keysToDelete,
   })
-
-  return await refreshNamespaces(folderPath)
 }
 
 export async function updateValue(
+  folderId: number,
   namespaceId: string,
-  folderPath: string,
   key: string,
   value: unknown
-) {
+): Promise<void> {
   await invoke('update_kv', {
+    folderId,
     namespaceId,
     key,
     valueStr: JSON.stringify(value),
   })
-
-  return await refreshNamespaces(folderPath)
-}
-
-async function refreshNamespaces(folderPath: string) {
-  const result = await invoke<KVNamespace[]>('select_folder', { path: folderPath })
-
-  return result.map(ns => ({
-    id: ns.id,
-    name: ns.id.toUpperCase(),
-    count: ns.entries.length,
-    type: 'local' as const,
-    entries: ns.entries.map((entry, index) => ({
-      id: index.toString(),
-      key: entry.key,
-      blob_id: entry.blob_id,
-      expiration: entry.expiration,
-      metadata: entry.metadata,
-      value: entry.value,
-    })),
-  }))
 }
 
 export async function connectCloudflare(accountId: string, apiToken: string): Promise<void> {
@@ -101,8 +91,7 @@ export async function connectCloudflare(accountId: string, apiToken: string): Pr
 }
 
 export async function getRemoteNamespaces(): Promise<KVNamespace[]> {
-  const remoteNamespaces = await invoke<KVNamespace[]>('get_remote_namespaces')
-  return remoteNamespaces
+  return invoke<KVNamespace[]>('get_remote_namespaces')
 }
 
 export async function getRemoteKeys(accountId: string, namespaceId: string): Promise<KVEntry[]> {
