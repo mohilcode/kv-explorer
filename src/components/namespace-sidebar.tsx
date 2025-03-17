@@ -137,9 +137,13 @@ export function NamespaceSidebar({
                     {namespace.name}
                   </span>
                   {namespace.count !== undefined ? (
-                    <span className="flex-shrink-0 text-xs text-cyan-500">({namespace.count})</span>
+                    <span className="flex-shrink-0 text-xs text-zinc-500">
+                      ({namespace.count})
+                    </span>
                   ) : (
-                    <span className="flex-shrink-0 text-xs text-cyan-500">(?)</span>
+                    <span className="flex-shrink-0 text-xs text-zinc-500">
+                      ({namespace.entries.length})
+                    </span>
                   )}
                 </button>
               ))}

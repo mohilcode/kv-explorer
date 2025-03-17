@@ -1,4 +1,3 @@
-// src-tauri/src/handlers/local.rs
 use std::fs;
 use std::path::{Path, PathBuf};
 use rusqlite::Connection;
@@ -26,7 +25,6 @@ pub fn add_folder(path: String, state: State<AppState>) -> Result<Vec<KVNamespac
     let path = PathBuf::from(path);
     let folder_name = extract_folder_name(&path);
 
-    // Save folder to database
     let folder_id = {
         let db = state.db.lock().unwrap();
         match db.save_folder(&path.to_string_lossy(), &folder_name) {
@@ -35,7 +33,6 @@ pub fn add_folder(path: String, state: State<AppState>) -> Result<Vec<KVNamespac
         }
     };
 
-    // Add folder to state
     let local_folder = LocalFolder {
         id: folder_id,
         path: path.clone(),
@@ -47,13 +44,11 @@ pub fn add_folder(path: String, state: State<AppState>) -> Result<Vec<KVNamespac
         folders.insert(folder_id, local_folder);
     }
 
-    // Load namespaces
     load_namespaces_for_folder(&path, folder_id)
 }
 
 #[command]
 pub fn remove_folder(folder_id: i64, state: State<AppState>) -> Result<(), String> {
-    // Remove from database
     {
         let db = state.db.lock().unwrap();
         if let Err(e) = db.remove_folder(folder_id) {
@@ -61,7 +56,6 @@ pub fn remove_folder(folder_id: i64, state: State<AppState>) -> Result<(), Strin
         }
     }
 
-    // Remove from state
     {
         let mut folders = state.folders.lock().unwrap();
         folders.remove(&folder_id);
@@ -80,7 +74,6 @@ pub fn load_folder(folder_id: i64, state: State<AppState>) -> Result<Vec<KVNames
         }
     };
 
-    // Update timestamp
     {
         let db = state.db.lock().unwrap();
         if let Err(e) = db.update_folder_timestamp(&folder_path.to_string_lossy()) {
@@ -195,6 +188,7 @@ fn load_namespaces_for_folder(path: &PathBuf, folder_id: i64) -> Result<Vec<KVNa
                 entries.push(entry);
             }
         }
+        let entries_count = entries.len();
 
         namespaces.push(KVNamespace {
             id: namespace_id.clone(),
@@ -203,7 +197,7 @@ fn load_namespaces_for_folder(path: &PathBuf, folder_id: i64) -> Result<Vec<KVNa
             r#type: "local".to_string(),
             account_id: None,
             folder_id: Some(folder_id),
-            count: None,
+            count: Some(entries_count)
         });
     }
 
