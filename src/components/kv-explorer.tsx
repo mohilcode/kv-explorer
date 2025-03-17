@@ -27,13 +27,6 @@ import {
 import { invoke } from '@tauri-apps/api/tauri'
 import { useEffect, useState } from 'react'
 
-const addUniqueIdsToEntries = (entries: KVEntry[], namespaceId: string): KVEntry[] => {
-  return entries.map((entry, index) => ({
-    ...entry,
-    id: `local-${namespaceId}-${index}`
-  }));
-};
-
 export function KVExplorer() {
   const [localFolders, setLocalFolders] = useState<LocalFolder[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -96,7 +89,7 @@ export function KVExplorer() {
 
       if (folderNamespaces.length > 0) {
         setSelectedNamespace(folderNamespaces[0].id)
-        setKeyValues(addUniqueIdsToEntries(folderNamespaces[0].entries, folderNamespaces[0].id))
+        setKeyValues(folderNamespaces[0].entries)
       }
     } catch (error) {
       toast({
@@ -125,7 +118,7 @@ export function KVExplorer() {
 
         if (folderNamespaces.length > 0) {
           setSelectedNamespace(folderNamespaces[0].id)
-          setKeyValues(addUniqueIdsToEntries(folderNamespaces[0].entries, folderNamespaces[0].id))
+          setKeyValues(folderNamespaces[0].entries)
         }
 
         toast({
@@ -247,7 +240,7 @@ export function KVExplorer() {
     setIsLoading(true)
     try {
       if (selected.type === 'local') {
-        setKeyValues(addUniqueIdsToEntries(selected.entries, selected.id));
+        setKeyValues(selected.entries)
       } else {
         const accountId = selected.accountId || remoteConnections[0]?.accountId
         if (!accountId) throw new Error('Account ID not found')
@@ -386,7 +379,7 @@ export function KVExplorer() {
 
           const updatedNamespace = folderNamespaces.find(ns => ns.id === selectedNamespace)
           if (updatedNamespace) {
-            setKeyValues(addUniqueIdsToEntries(updatedNamespace.entries, updatedNamespace.id));
+            setKeyValues(updatedNamespace.entries);
           }
         }
       } else {
@@ -444,7 +437,7 @@ export function KVExplorer() {
 
           const updatedNamespace = folderNamespaces.find(ns => ns.id === selectedNamespace)
           if (updatedNamespace) {
-            setKeyValues(addUniqueIdsToEntries(updatedNamespace.entries, updatedNamespace.id))
+            setKeyValues(updatedNamespace.entries)
           }
         }
       } else {

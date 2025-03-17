@@ -34,6 +34,7 @@ impl From<&LocalFolder> for LocalFolderInfo {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct KVEntry {
+    pub id: String,
     pub key: String,
     pub blob_id: String,
     pub expiration: Option<i64>,

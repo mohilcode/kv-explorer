@@ -177,6 +177,7 @@ fn load_namespaces_for_folder(path: &PathBuf, folder_id: i64) -> Result<Vec<KVNa
             }
 
             Ok(KVEntry {
+                id: format!("{}-{}", namespace_id, blob_id),
                 key,
                 blob_id,
                 expiration,

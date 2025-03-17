@@ -227,6 +227,7 @@ pub async fn get_remote_keys(account_id: String, namespace_id: String, state: St
     let mut entries = Vec::new();
     for (index, key) in response_data.result.iter().enumerate() {
         entries.push(KVEntry {
+            id: format!("{}-{}", namespace_id, index),
             key: key.name.clone(),
             blob_id: format!("remote-{}", index),
             expiration: key.expiration,
