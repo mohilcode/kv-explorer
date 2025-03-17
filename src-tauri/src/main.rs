@@ -24,6 +24,15 @@ fn main() {
 
             std::fs::create_dir_all(&app_data_dir).ok();
 
+            #[cfg(debug_assertions)]
+            {
+                let db_path = app_data_dir.join("kv_explorer.db");
+                if db_path.exists() {
+                    println!("Resetting database for development mode");
+                    std::fs::remove_file(db_path).ok();
+                }
+            }
+
             app.manage(AppState::new(app_data_dir));
             Ok(())
         })

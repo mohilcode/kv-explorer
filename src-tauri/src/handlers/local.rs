@@ -120,7 +120,8 @@ fn load_namespaces_for_folder(path: &PathBuf, folder_id: i64) -> Result<Vec<KVNa
             continue;
         }
 
-        let namespace_id = entry.file_name().to_string_lossy().to_string();
+        let namespace_name = entry.file_name().to_string_lossy().to_string();
+        let namespace_id = format!("folder-{}-ns-{}", folder_id, namespace_name);
         let namespace_dir = entry.path();
         let blob_path = namespace_dir.join("blobs");
 
@@ -196,7 +197,7 @@ fn load_namespaces_for_folder(path: &PathBuf, folder_id: i64) -> Result<Vec<KVNa
 
         namespaces.push(KVNamespace {
             id: namespace_id.clone(),
-            name: namespace_id.to_uppercase(),
+            name: namespace_name.to_uppercase(),
             entries,
             r#type: "local".to_string(),
             account_id: None,
@@ -210,6 +211,13 @@ fn load_namespaces_for_folder(path: &PathBuf, folder_id: i64) -> Result<Vec<KVNa
 
 #[command]
 pub fn update_kv(folder_id: i64, namespace_id: String, key: String, value_str: String, state: State<AppState>) -> Result<(), String> {
+    let namespace_name = if namespace_id.starts_with("folder-") {
+        namespace_id.splitn(4, "-").nth(3)
+            .ok_or_else(|| "Invalid namespace ID format".to_string())?
+    } else {
+        &namespace_id
+    };
+
     let path = {
         let folders = state.folders.lock().unwrap();
         match folders.get(&folder_id) {
@@ -219,7 +227,7 @@ pub fn update_kv(folder_id: i64, namespace_id: String, key: String, value_str: S
     };
 
     let kv_path = path.join(".wrangler").join("state").join("v3").join("kv");
-    let namespace_path = kv_path.join(&namespace_id).join("blobs");
+    let namespace_path = kv_path.join(&namespace_name).join("blobs");
 
     let db_dir = kv_path.join("miniflare-KVNamespaceObject");
     let mut db_path = None;
@@ -272,6 +280,13 @@ pub fn update_kv(folder_id: i64, namespace_id: String, key: String, value_str: S
 
 #[command]
 pub fn delete_kv(folder_id: i64, namespace_id: String, keys: Vec<String>, state: State<AppState>) -> Result<(), String> {
+    let namespace_name = if namespace_id.starts_with("folder-") {
+        namespace_id.splitn(4, "-").nth(3)
+            .ok_or_else(|| "Invalid namespace ID format".to_string())?
+    } else {
+        &namespace_id
+    };
+
     let path = {
         let folders = state.folders.lock().unwrap();
         match folders.get(&folder_id) {
@@ -281,7 +296,7 @@ pub fn delete_kv(folder_id: i64, namespace_id: String, keys: Vec<String>, state:
     };
 
     let kv_path = path.join(".wrangler").join("state").join("v3").join("kv");
-    let namespace_path = kv_path.join(&namespace_id).join("blobs");
+    let namespace_path = kv_path.join(&namespace_name).join("blobs");
 
     let db_dir = kv_path.join("miniflare-KVNamespaceObject");
     let mut db_path = None;
