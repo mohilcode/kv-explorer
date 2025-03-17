@@ -51,7 +51,7 @@ pub struct KVNamespace {
     pub r#type: String,
     #[serde(default)]
     pub account_id: Option<String>,
-    #[serde(default)]
+    #[serde(default, rename = "folderId")]
     pub folder_id: Option<i64>,
     #[serde(default)]
     pub count: Option<usize>,

@@ -42,13 +42,18 @@ export async function addFolder(): Promise<{ folderId: number; namespaces: KVNam
     return { folderId: 0, namespaces: [] }
   }
 
-  const result = await invoke<KVNamespace[]>('add_folder', { path: selected })
+  try {
+    const result = await invoke<KVNamespace[]>('add_folder', { path: selected })
 
-  const folderId = result.length > 0 ? result[0].folderId || 0 : 0
+    const folderId = result.length > 0 ? result[0].folderId || 0 : 0
 
-  return {
-    folderId,
-    namespaces: result,
+    return {
+      folderId,
+      namespaces: result,
+    }
+  } catch (error) {
+    console.error('Error in add_folder:', error)
+    throw error
   }
 }
 
