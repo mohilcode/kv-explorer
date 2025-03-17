@@ -26,6 +26,11 @@ export function Header({
   return (
     <header className="flex flex-col border-b border-zinc-800">
       <div className="flex h-14 items-center px-4 lg:px-6">
+        <img
+          src="/kv-icon.png"
+          alt="KV Explorer"
+          className="h-8 w-8 mr-2"
+        />
         <h1 className="text-xl font-bold tracking-wider">{title}</h1>
         <span className="ml-2 text-xs text-zinc-500">{version}</span>
         <Separator orientation="vertical" className="mx-4 h-6" />
