@@ -1,8 +1,9 @@
 [package]
 name = "kv-explorer"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+description = "Wrangler KV Explorer"
+license = "MIT"
+authors = ["Mohil"]
 edition = "2021"
 
 [profile.release]

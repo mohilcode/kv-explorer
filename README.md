@@ -1,16 +1,16 @@
-
 # Wrangler KV Explorer
 
-A desktop application built with Tauri to explore and manage the local KV storage used by Cloudflare's Wrangler tool.
+A desktop application built with Tauri to explore and manage both local and remote Cloudflare KV storage used by Wrangler.
 
 ## Features
 
 - Select a Wrangler project folder to view its local KV namespaces and entries.
+- Connect to your Cloudflare account using Account ID and API Token to access remote KV namespaces.
+- View all KV namespaces in your Cloudflare account.
 - Display KV entries with keys, values (parsed as JSON if possible), expiration, and metadata.
-- Update KV entry values.
-- Delete one or more KV entries.
-
-**Note:** This app only interacts with Wrangler's local storage, not live Cloudflare KV storage.
+- Update KV entry values for both local and remote storage.
+- Delete KV entries.
+- Comprehensive management of both local and remote KV storage in one interface.
 
 ## Prerequisites
 
@@ -21,9 +21,15 @@ A desktop application built with Tauri to explore and manage the local KV storag
 
 ## Installation
 
+### Pre-built Releases
+
+Ready-to-use release builds are available for download from the [Releases](https://github.com/mohilcode/kv-explorer/releases) page.
+
+### Building from Source
+
 1. Clone the repository:
    ```sh
-   git clone https://github.com/yourusername/kv-explorer.git
+   git clone https://github.com/mohilcode/kv-explorer.git
    cd kv-explorer
    ```
 
@@ -52,9 +58,14 @@ pnpm tauri dev
    - **macOS**: Open `kv-explorer.app`.
    - **Linux**: Execute `kv-explorer`.
 
-2. Click "Select Folder" and choose the root folder of your Wrangler project (containing `.wrangler`).
+2. For local KV storage:
+   - Click "Select Folder" and choose the root folder of your Wrangler project (containing `.wrangler`).
 
-3. View, update, or delete KV entries as needed.
+3. For remote Cloudflare KV storage:
+   - Enter your Cloudflare Account ID and API Token.
+   - Click "Connect" to access your remote KV namespaces.
+
+4. View, update, or delete KV entries as needed for both local and remote storage.
 
 ## Contributing
 
