@@ -41,6 +41,9 @@ export function KVExplorer() {
   const [keyValues, setKeyValues] = useState<KVEntry[]>([])
   const [isRemoteModalOpen, setIsRemoteModalOpen] = useState(false)
   const [remoteConnections, setRemoteConnections] = useState<{ accountId: string }[]>([])
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [totalKeys, setTotalKeys] = useState<number>(0)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -233,6 +236,7 @@ export function KVExplorer() {
     setSelectedKeys([])
     setViewingKeyId(null)
     setSelectedValue(null)
+    setNextCursor(null)
 
     const selected = namespaces.find(ns => ns.id === namespaceId)
     if (!selected) return
@@ -245,8 +249,10 @@ export function KVExplorer() {
         const accountId = selected.accountId || remoteConnections[0]?.accountId
         if (!accountId) throw new Error('Account ID not found')
 
-        const entries = await getRemoteKeys(accountId, namespaceId)
-        setKeyValues(entries)
+        const result = await getRemoteKeys(accountId, namespaceId)
+        setKeyValues(result.entries)
+        setNextCursor(result.cursor || null)
+        setTotalKeys(result.total)
       }
     } catch (error) {
       toast({
@@ -256,6 +262,32 @@ export function KVExplorer() {
       })
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleLoadMore = async () => {
+    if (!selectedNamespace || !nextCursor) return
+
+    const selected = namespaces.find(ns => ns.id === selectedNamespace)
+    if (!selected || selected.type !== 'remote') return
+
+    setIsLoadingMore(true)
+    try {
+      const accountId = selected.accountId || remoteConnections[0]?.accountId
+      if (!accountId) throw new Error('Account ID not found')
+
+      const result = await getRemoteKeys(accountId, selectedNamespace, nextCursor)
+      setKeyValues(prev => [...prev, ...result.entries])
+      setNextCursor(result.cursor || null)
+      setTotalKeys(result.total)
+    } catch (error) {
+      toast({
+        title: 'ERROR',
+        description: String(error),
+        variant: 'destructive',
+      })
+    } finally {
+      setIsLoadingMore(false)
     }
   }
 
@@ -379,7 +411,7 @@ export function KVExplorer() {
 
           const updatedNamespace = folderNamespaces.find(ns => ns.id === selectedNamespace)
           if (updatedNamespace) {
-            setKeyValues(updatedNamespace.entries);
+            setKeyValues(updatedNamespace.entries)
           }
         }
       } else {
@@ -388,8 +420,10 @@ export function KVExplorer() {
 
         await deleteRemoteKeys(accountId, selectedNamespace, keysToDelete)
 
-        const entries = await getRemoteKeys(accountId, selectedNamespace)
-        setKeyValues(entries)
+        const result = await getRemoteKeys(accountId, selectedNamespace)
+        setKeyValues(result.entries)
+        setNextCursor(result.cursor || null)
+        setTotalKeys(result.total)
       }
 
       setSelectedKeys([])
@@ -450,8 +484,10 @@ export function KVExplorer() {
           setSelectedValue(editingValue)
         }
 
-        const entries = await getRemoteKeys(accountId, selectedNamespace)
-        setKeyValues(entries)
+        const result = await getRemoteKeys(accountId, selectedNamespace)
+        setKeyValues(result.entries)
+        setNextCursor(result.cursor || null)
+        setTotalKeys(result.total)
       }
 
       setIsEditing(false)
@@ -565,6 +601,10 @@ export function KVExplorer() {
                     onEdit={handleEdit}
                     onDelete={keyId => handleDelete([keyId])}
                     onDeleteSelected={() => handleDelete(selectedKeys)}
+                    hasMoreKeys={!!nextCursor}
+                    isLoadingMore={isLoadingMore}
+                    onLoadMore={handleLoadMore}
+                    totalKeys={totalKeys}
                   />
                 </ResizablePanel>
                 {selectedValue !== null && (

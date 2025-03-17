@@ -1,11 +1,10 @@
-// src-tauri/src/handlers/remote.rs
 use reqwest::{Client, header};
 use serde_json::Value;
 use tauri::{command, State};
 
 use crate::app_state::AppState;
 use crate::models::kv::{KVEntry, KVNamespace, RemoteConnection};
-use crate::models::cloudflare::{CloudflareListResponse, CloudflareNamespace, CloudflareKey};
+use crate::models::cloudflare::{CloudflareListResponse, CloudflareNamespace, CloudflareKey, CloudflareKeysResponse};
 
 #[command]
 pub async fn connect_cloudflare(account_id: String, api_token: String, state: State<'_, AppState>) -> Result<(), String> {
@@ -111,7 +110,12 @@ pub async fn get_remote_namespaces(state: State<'_, AppState>) -> Result<Vec<KVN
 }
 
 #[command]
-pub async fn get_remote_keys(account_id: String, namespace_id: String, state: State<'_, AppState>) -> Result<Vec<KVEntry>, String> {
+pub async fn get_remote_keys(
+    account_id: String,
+    namespace_id: String,
+    cursor: Option<String>,
+    state: State<'_, AppState>
+) -> Result<CloudflareKeysResponse, String> {
     let connections = state.remote_connections.lock().unwrap().clone();
     let connection = connections
         .iter()
@@ -119,10 +123,15 @@ pub async fn get_remote_keys(account_id: String, namespace_id: String, state: St
         .ok_or_else(|| "Connection not found".to_string())?;
 
     let client = Client::new();
-    let url = format!(
-        "https://api.cloudflare.com/client/v4/accounts/{}/storage/kv/namespaces/{}/keys",
+
+    let mut url = format!(
+        "https://api.cloudflare.com/client/v4/accounts/{}/storage/kv/namespaces/{}/keys?limit=1000",
         account_id, namespace_id
     );
+
+    if let Some(cursor_value) = cursor {
+        url = format!("{}&cursor={}", url, cursor_value);
+    }
 
     let response = client
         .get(&url)
@@ -168,7 +177,14 @@ pub async fn get_remote_keys(account_id: String, namespace_id: String, state: St
         });
     }
 
-    Ok(entries)
+    let next_cursor = response_data.result_info.as_ref().and_then(|info| info.cursor.clone());
+    let total_count = response_data.result_info.as_ref().map(|info| info.count).unwrap_or(0);
+
+    Ok(CloudflareKeysResponse {
+        entries,
+        cursor: next_cursor,
+        total: total_count,
+    })
 }
 
 #[command]

@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
-import { Edit, Trash2 } from 'lucide-react'
+import { Edit, RefreshCw, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 
 interface KeyValue {
@@ -21,6 +21,10 @@ interface KeyValueTableProps {
   onEdit: (keyId: string) => void
   onDelete: (keyId: string) => void
   onDeleteSelected: () => void
+  hasMoreKeys: boolean
+  isLoadingMore: boolean
+  onLoadMore: () => void
+  totalKeys?: number
 }
 
 export function KeyValueTable({
@@ -32,6 +36,10 @@ export function KeyValueTable({
   onEdit,
   onDelete,
   onDeleteSelected,
+  hasMoreKeys,
+  isLoadingMore,
+  onLoadMore,
+  totalKeys,
 }: KeyValueTableProps) {
   const [sortField, setSortField] = useState<'key' | 'expiration'>('key')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
@@ -58,7 +66,10 @@ export function KeyValueTable({
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between border-b border-zinc-800 p-4">
-        <h2 className="text-lg font-bold tracking-wider">KEY-VALUE PAIRS</h2>
+        <h2 className="text-lg font-bold tracking-wider">
+          KEY-VALUE PAIRS
+          {totalKeys ? `(${keyValues.length}/${totalKeys})` : `(${keyValues.length})`}
+        </h2>
         {selectedKeys.length > 0 && (
           <Button
             variant="destructive"
@@ -161,6 +172,25 @@ export function KeyValueTable({
           </div>
         ))}
       </ScrollArea>
+
+      {hasMoreKeys && (
+        <div className="flex justify-center py-4 border-t border-zinc-800">
+          <Button
+            onClick={onLoadMore}
+            disabled={isLoadingMore}
+            className="bg-zinc-800 hover:bg-zinc-700 cursor-pointer"
+          >
+            {isLoadingMore ? (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                Loading...
+              </>
+            ) : (
+              'Load More'
+            )}
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

@@ -99,16 +99,17 @@ export async function getRemoteNamespaces(): Promise<KVNamespace[]> {
   return invoke<KVNamespace[]>('get_remote_namespaces')
 }
 
-export async function getRemoteKeys(accountId: string, namespaceId: string): Promise<KVEntry[]> {
-  const entries = await invoke<KVEntry[]>('get_remote_keys', {
-    accountId,
-    namespaceId,
-  })
+export async function getRemoteKeys(
+  accountId: string,
+  namespaceId: string,
+  cursor?: string
+): Promise<{ entries: KVEntry[], cursor?: string, total: number }> {
+  const result = await invoke<{ entries: KVEntry[], cursor?: string, total: number }>(
+    'get_remote_keys',
+    { accountId, namespaceId, cursor }
+  );
 
-  return entries.map((entry, index) => ({
-    ...entry,
-    id: index.toString(),
-  }))
+  return result;
 }
 
 export async function getRemoteValue(
