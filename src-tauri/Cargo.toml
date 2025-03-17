@@ -5,6 +5,13 @@ description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
 
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
+
 [build-dependencies]
 tauri-build = { version = "1", features = [] }
 
